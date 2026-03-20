@@ -60,13 +60,11 @@ def get_datapath(repo_name: str):
     )
 
 
-def get_spectrogram_img_filenamename(mode: str, sample_idx: int, su_idx: int):
+def get_spectrogram_img_filenamename(sample_idx: int, su_idx: int):
     """Generate the filename for a spectrogram image based on the mode, sample index and SU index.
 
     Parameters
     ----------
-    mode : str
-        The mode of the sample, i.e. 'PT' or 'DT'.
     sample_idx : int
         The index of the sample.
     su_idx : int / str
@@ -82,7 +80,7 @@ def get_spectrogram_img_filenamename(mode: str, sample_idx: int, su_idx: int):
     if su_idx != "*":
         su_idx = str(su_idx).zfill(2)
 
-    return f"{mode}_spectrogram-{str(sample_idx).zfill(4)}-{su_idx}.png"
+    return f"spectrogram-{str(sample_idx).zfill(5)}-{su_idx}.png"
 
 
 def get_resource_alloc_img_filenamename(sample_idx: int):
@@ -100,7 +98,7 @@ def get_resource_alloc_img_filenamename(sample_idx: int):
     """
 
     if sample_idx != "*":
-        sample_idx = str(sample_idx).zfill(4)
+        sample_idx = str(sample_idx).zfill(5)
 
     return f"alloc_res-{sample_idx}.png"
 

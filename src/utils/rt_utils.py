@@ -27,7 +27,6 @@ from src.utils.ofdm_utils import (
     upsample_rb_to_re,
     filter_spectrogram_by_allocated_res,
     upsample_axis_of_2d_array,
-    average_power_per_subcarrier,
 )
 
 
@@ -734,9 +733,7 @@ def create_spectrograms(sample, cfg, h, noise=False):
         # add noise according to a specified SNR. The noise level relates to the weakest signal
         if noise:
             weakest_signal_power = np.mean(signal_powers)
-            logging.debug(
-                f"Weakest RX Signal power: {weakest_signal_power:.2f} dBm"
-            )
+            logging.debug(f"Weakest RX Signal power: {weakest_signal_power:.2f} dBm")
             noise_power = weakest_signal_power / (10 ** (sample.snr / 10))
             sample.noise_power_per_su[su_idx] = noise_power
             logging.debug(f"Noise power: {10*np.log10(noise_power):.2f} dBm")

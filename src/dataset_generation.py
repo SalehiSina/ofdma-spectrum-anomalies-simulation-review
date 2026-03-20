@@ -237,7 +237,7 @@ def generate_dataset(cfg, scene):
                     _datapath,
                     f"{cfg.dataset_nr}",
                     "custom",
-                    f"orig_samples-{batch_idx:04d}.gz",
+                    f"samples-{batch_idx:04d}.gz",
                 ),
                 "wb",
             ) as f:
