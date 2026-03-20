@@ -566,7 +566,7 @@ def h_to_cir(h, su_idx, tx_idx):
     )
 
 
-def create_spectrograms(sample, cfg, h, mode, noise=False):
+def create_spectrograms(sample, cfg, h, noise=False):
     """Create spectrograms for a sample with the given frequency response for each SU.
 
     Parameters
@@ -577,12 +577,6 @@ def create_spectrograms(sample, cfg, h, mode, noise=False):
         Configuration object.
     h : np.ndarray
         Array of the complex channel frequency responses.
-    mode : str
-        Can be PT or DT.
-        If PT, the spectrogram is filled with complex symbols and only
-        converted to the magnitude in the end.
-        If DT, the spectrogram is filled with the magnitude directly,
-        the phase is not considered.
     noise : bool, optional
         If True, the spectrogram is initialized with noise. Otherwise,
         the spectrogram is initialized with zeros (linear domain) and
@@ -594,9 +588,6 @@ def create_spectrograms(sample, cfg, h, mode, noise=False):
     sample : Sample
         Updated sample object with spectrograms added.
     """
-
-    if mode not in ["PT", "DT"]:
-        raise ValueError("Mode not recognized. Needs to be PT or DT.")
 
     # create the plain user signals, first in time domain
     # and then convert to frequency domain
@@ -735,11 +726,6 @@ def create_spectrograms(sample, cfg, h, mode, noise=False):
                 cfg.oob_suppression,
             )
 
-            if mode == "DT":
-                user_signal_spec = average_power_per_subcarrier(
-                    user_signal_spec, allocated_resources_upsampled[tx_idx]
-                )
-
             if tx_idx == 0:
                 total_spec = user_signal_spec
             else:
@@ -747,15 +733,12 @@ def create_spectrograms(sample, cfg, h, mode, noise=False):
 
         # add noise according to a specified SNR. The noise level relates to the weakest signal
         if noise:
-            if mode == "PT":
-                weakest_signal_power = np.mean(signal_powers)
-                logging.debug(
-                    f"Weakest RX Signal power: {weakest_signal_power:.2f} dBm"
-                )
-                noise_power = weakest_signal_power / (10 ** (sample.snr / 10))
-                sample.noise_power_per_su[su_idx] = noise_power
-            elif mode == "DT":
-                noise_power = sample.noise_power_per_su[su_idx]
+            weakest_signal_power = np.mean(signal_powers)
+            logging.debug(
+                f"Weakest RX Signal power: {weakest_signal_power:.2f} dBm"
+            )
+            noise_power = weakest_signal_power / (10 ** (sample.snr / 10))
+            sample.noise_power_per_su[su_idx] = noise_power
             logging.debug(f"Noise power: {10*np.log10(noise_power):.2f} dBm")
             noise_signal = (
                 np.random.normal(size=len(time_signal))
@@ -770,11 +753,6 @@ def create_spectrograms(sample, cfg, h, mode, noise=False):
                 noise_spec, cfg.idx_first_sc, cfg.num_subcarriers
             )
 
-            if mode == "DT":
-                # average (in log domain) to minimize deviations
-                noise_spec_db = 20 * np.log10(np.abs(noise_spec))
-                noise_spec_db = np.mean(noise_spec_db)
-                noise_spec = 10 ** (noise_spec_db / 20)
             total_spec += noise_spec
 
         # add jammer to the signal
