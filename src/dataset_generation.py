@@ -1,0 +1,511 @@
+"""For a given scene, this script generates spectrograms for an OFDMA system based on ray tracing.
+
+Most configuration can be done in the config file at conf/dataset_generation.yaml.
+
+In the bottom of this script, it can be selected whether a physical twin (PT) dataset shall be
+generated or if for an existing PT dataset a digital twin (DT) dataset shall be generated.
+"""
+
+__docformat__ = "numpy"
+
+import os
+import sys
+
+import argparse
+import compress_pickle as cpkl
+from datetime import datetime
+from glob import glob
+import hydra
+import logging
+import numpy as np
+from omegaconf import open_dict
+import re
+from tqdm import tqdm, trange
+from typing import Literal
+import warnings
+
+import sionna.rt as srt
+
+# import own modules
+_repo_name = "ofdma-spectrum-anomalies-simulation"
+_module_path = __file__[: __file__.find(_repo_name) + len(_repo_name)]
+sys.path.append(os.path.abspath(_module_path))
+
+from utils import rt_utils, ofdm_utils
+from utils.data_utils import get_datapath
+from utils.datatypes import Transmitter, Jammer, Sample
+
+_datapath = get_datapath(_repo_name)
+
+
+def generate_sample(mode: Literal["PT", "DT"], cfg, scene, **kwargs):
+    """Generate one sample (realization) for the dataset.
+
+    Parameters
+    ----------
+    mode : Literal["PT", "DT"]
+        Mode of the dataset generation. PT for a completely new sample
+        and DT for a DT sample based corresponding to a PT sample.
+    cfg : OmegaConf
+        Configuration object containing the parameters for the dataset generation.
+    scene : sionna.rt.Scene
+        Scene object containing the environment.
+    **kwargs : dict
+        Additional keyword arguments.
+
+        - jammer_type : str, optional
+            Type of the jammer for the PT mode.
+        - orig_sample : Sample, optional
+            Original sample for the DT mode.
+
+    Returns
+    -------
+    sample : Sample
+        Sample object containing the information of the generated sample.
+    """
+
+    if mode == "PT":
+        jammer_type = kwargs["jammer_type"]
+    else:
+        orig_sample = kwargs["orig_sample"]
+
+    sample = Sample()
+
+    if mode == "PT":
+        # random number of regular transmitters
+        num_tx = np.random.randint(cfg.min_tx, cfg.max_tx + 1)
+
+        # select random SNR (integer for easier analysis later on)
+        sample.snr = np.random.randint(cfg.snr_range[0], cfg.snr_range[1] + 1)
+
+        # assign resources to the regular transmitters
+        allocated_resources = ofdm_utils.allocate_resources(
+            num_tx, num_rb, cfg.n_slots, plot_allocation=False
+        )
+
+        # place the regular transmitters at random positions
+        # and add them to the sample
+        for tx_idx in range(num_tx):
+            tx_pos = rt_utils.get_random_tx_location(
+                cfg.scene_nr, scene_size, tx_height=1.5
+            )
+            tx = Transmitter(tx_pos, allocated_resources[tx_idx])
+            sample.add_transmitter(tx)
+
+            logging.debug(f"TX {tx_idx} position: {tx_pos}")
+
+    elif mode == "DT":
+        # place the regular transmitters with random offsets
+        # and add them to the sample
+        for tx_idx, tx_orig in enumerate(orig_sample.transmitters):
+            tx_pos = rt_utils.add_localization_error(
+                tx_orig.location, cfg.pos_std, cfg.scene_nr, scene_size
+            )
+            tx = Transmitter(tx_pos, tx_orig.resources)
+            sample.add_transmitter(tx)
+
+            logging.debug(f"TX {tx_idx} position: {tx_pos}")
+
+        sample.snr = orig_sample.snr
+        sample.noise_power_per_su = orig_sample.noise_power_per_su
+
+        if cfg.plots.scenario_2D:
+            rt_utils.plot_scenario2D(
+                cfg.scene_nr,
+                sample,
+                add_device_labels=True,
+                su_coordinates=su_coordinates,
+            )
+
+    # jammer type according to predefined list
+    if mode == "PT":
+        if jammer_type != "normal":
+            jammer_pos = rt_utils.get_random_tx_location(
+                cfg.scene_nr, scene_size, tx_height=1.5
+            )
+            # jammer orientation is randomly rotated in the x-y-plane
+            # important due to directional antenna pattern
+            jammer_orientation = [np.random.uniform(0, 2 * np.pi), 0, 0]
+            jammer_power = cfg.tx_power - np.random.choice(
+                np.arange(cfg.jsr.min, cfg.jsr.max + 1, cfg.jsr.step)
+            )
+            jammer = Jammer(
+                jammer_pos,
+                jammer_orientation,
+                jammer_power,
+                jammer_type,
+                jammer_pattern,
+            )
+            sample.add_jammer(jammer)
+
+    if cfg.plots.scenario_2D:
+        rt_utils.plot_scenario2D(
+            cfg.scene_nr, sample, add_device_labels=True, su_coordinates=su_coordinates
+        )
+
+    # Execute ray tracing for every transmitter and jammer ----------------------------------------
+
+    # add the devices to the scene
+    for tx_idx, tx in enumerate(sample.transmitters):
+        stx = srt.Transmitter(
+            name=f"tx{tx_idx}", position=np.array(tx.location)
+        )  # numpy array for mitsuba compatibility
+        scene.add(stx)
+
+    # configure isotropic antennas for legitimate transmitters
+    scene = rt_utils.configure_tx_antenna_pattern(scene, "iso")
+
+    if cfg.plots.scenario_rendered:
+        # jammers are only added for visualization purposes
+        for jam_idx, jam in enumerate(sample.jammers):
+            sjam = srt.Transmitter(
+                name=f"jam{jam_idx}", position=jam.location, orientation=jam.orientation
+            )
+            scene.add(sjam)
+
+        scene.render(camera="scene-cam-0")
+
+        # remove the jammers so that they are not simulated in the ray tracing
+        for jam_idx in range(len(sample.jammers)):
+            scene.remove(f"jam{jam_idx}")
+
+    # execute ray tracing
+    paths = p_solver(
+        scene=scene,
+        max_depth=cfg.sionna.max_depth,
+        samples_per_src=int(cfg.sionna.num_rays),
+        specular_reflection=True,
+        refraction=True,
+    )
+
+    # calculate the channel frequency response
+    h = paths.cfr(
+        fft_freq,
+        sampling_frequency=cfg.subcarrier_spacing * cfg.nfft,
+        normalize_delays=False,
+        normalize=False,
+        out_type="numpy",
+    )
+
+    # remove the legitimate transmitters from the scene
+    for tx_idx in range(len(sample.transmitters)):
+        scene.remove(f"tx{tx_idx}")
+
+    # execute ray tracing for the jammer
+    if mode == "PT":
+        if len(sample.jammers) > 0:
+
+            # configure the jammer antenna pattern
+            scene = rt_utils.configure_tx_antenna_pattern(scene, jammer_pattern)
+
+            # add the jammer to the scene
+            for jam_idx, jam in enumerate(sample.jammers):
+                sjam = srt.Transmitter(name=f"jam{jam_idx}", position=jam.location)
+                scene.add(sjam)
+            paths_jam = p_solver(
+                scene=scene,
+                max_depth=cfg.sionna.max_depth,
+                samples_per_src=int(cfg.sionna.num_rays),
+                specular_reflection=True,
+                refraction=True,
+            )
+            h_jam = paths_jam.cfr(
+                fft_freq,
+                sampling_frequency=cfg.subcarrier_spacing * cfg.nfft,
+                normalize_delays=False,
+                normalize=False,
+                out_type="numpy",
+            )
+
+            # combine the CFRs of the authorized transmitters if the jammer is present
+            h = np.concatenate((h, h_jam), axis=2)  # axis 2 in the index of the tx
+
+            # remove the jammers from the scene
+            for jam_idx, jam in enumerate(sample.jammers):
+                scene.remove(f"jam{jam_idx}")
+
+    # Create spectrograms -------------------------------------------------------------------------
+
+    if cfg.plots.frequency_responses:
+        rt_utils.plot_frequency_responses(fft_freq, h, len(sample.jammers))
+
+    # use the assigned resources together with the assigned resources to create the spectrograms
+    sample = rt_utils.create_spectrograms(sample, cfg, h, mode, noise=True)
+
+    if cfg.plots.all_spectrograms:
+        sample.plot_all_spectrograms()
+
+    return sample
+
+
+def generate_pt_dataset(cfg, scene):
+    """Generate a physical twin (PT) dataset for the given scene.
+
+    The dataset consists of samples with different SNRs and jamming types.
+    The dataset is stored in the datapath specified in the datapath.txt file.
+
+    Parameters
+    ----------
+    cfg : OmegaConf
+        Configuration object containing the parameters for the dataset generation.
+    scene : sionna.rt.Scene
+        Scene object containing the environment.
+    """
+
+    # generate which samples are jammed (incl. type) and which are normal
+    jammer_types = ["deceptive", "sweep", "barrage", "pilot"]
+    no_samples_by_jammer = int(
+        cfg.nr_samples * cfg.jam_probability // len(jammer_types)
+    )
+    no_normal_samples = cfg.nr_samples - no_samples_by_jammer * len(jammer_types)
+
+    sample_type = ["normal"] * no_normal_samples
+    for idx_jammer, jammer in enumerate(jammer_types):
+        sample_type += [jammer] * no_samples_by_jammer
+
+    samples = []
+    batch_idx = 0
+
+    # check if the folder for the dataset exists, if not create it
+    if not os.path.exists(os.path.join(_datapath, f"{cfg.dataset_nr}", "custom")):
+        os.makedirs(os.path.join(_datapath, f"{cfg.dataset_nr}", "custom"))
+
+    for idx_sample in trange(cfg.nr_samples, desc="Generating PT samples"):
+
+        logging.debug(f"Sample {idx_sample} -----------------------")
+
+        samples.append(
+            generate_sample("PT", cfg, scene, jammer_type=sample_type[idx_sample])
+        )
+
+        if len(samples) == cfg.batch_size or idx_sample == cfg.nr_samples - 1:
+            # store if batch is full or if it is the last sample
+            with open(
+                os.path.join(
+                    _datapath,
+                    f"{cfg.dataset_nr}",
+                    "custom",
+                    f"orig_samples-{batch_idx:04d}.gz",
+                ),
+                "wb",
+            ) as f:
+                cpkl.dump(samples, f, compression="gzip")
+
+            samples = []
+            batch_idx += 1
+
+
+def generate_dt_dataset(cfg, scene):
+    """Generate a digital twin (DT) dataset for the given scene
+    based on an existing physical twin (PT) dataset.
+
+    The dataset consists of samples with different SNRs and jamming types.
+    The dataset is stored in the datapath specified in the datapath.txt file.
+
+    Parameters
+    ----------
+    cfg : OmegaConf
+        Configuration object containing the parameters for the dataset generation.
+    scene : sionna.rt.Scene
+        Scene object containing the environment.
+    """
+
+    num_samples = 0
+    for filename in glob(
+        os.path.join(
+            _datapath,
+            f"{cfg.dataset_nr}",
+            "custom",
+            f"orig_samples-*.gz",
+        )
+    ):
+        with open(filename, "rb") as f:
+            orig_samples = cpkl.load(f, compression="gzip")
+        num_samples += len(orig_samples)
+
+    progress_bar = tqdm(total=num_samples, desc="Generating DT samples")
+
+    for filename in glob(
+        os.path.join(
+            _datapath,
+            f"{cfg.dataset_nr}",
+            "custom",
+            f"orig_samples-*.gz",
+        )
+    ):
+        regex_filename = f"orig_samples-" + r"(\d+)\.gz$"
+        match = re.search(regex_filename, filename)
+        batch_idx = int(match.group(1))
+
+        # Load the original samples
+        with open(filename, "rb") as f:
+            orig_samples = cpkl.load(f, compression="gzip")
+
+        samples = []
+
+        for orig_sample in orig_samples:
+            samples.append(generate_sample("DT", cfg, scene, orig_sample=orig_sample))
+            progress_bar.update(1)
+
+        with open(
+            os.path.join(
+                _datapath,
+                f"{cfg.dataset_nr}",
+                "custom",
+                f"dt_samples-{batch_idx:04d}.gz",
+            ),
+            "wb",
+        ) as f:
+            cpkl.dump(samples, f, compression="gzip")
+
+    progress_bar.close()
+
+
+def parse_arguments():
+    """Parse command line arguments.
+
+    Returns
+    -------
+    args : Namespace
+        Parsed command line arguments.
+    """
+
+    parser = argparse.ArgumentParser(
+        description="Generate a dataset for a given scene and configuration."
+    )
+
+    parser.add_argument(
+        "-m",
+        "--mode",
+        type=str,
+        choices=["PT", "DT"],
+        required=False,
+        help="Mode of the dataset generation. PT for a new dataset and DT"
+        " for a digital twin dataset corresponding to an existing physical twin dataset.",
+    )
+
+    parser.add_argument(
+        "-d",
+        "--dataset-number",
+        type=int,
+        required=False,
+        help="Dataset number to process.",
+    )
+
+    parser.add_argument(
+        "-n",
+        "--num-samples",
+        type=int,
+        required=False,
+        help="Number of samples to generate. If not set, the number of samples from the config file is used.",
+    )
+
+    args = parser.parse_args()
+
+    return args
+
+
+if __name__ == "__main__":
+
+    # Initialization ----------------------------------------------------------------------------------
+
+    # load config file which contains the parameters into cfg object
+    hydra.initialize(version_base=None, config_path="conf")
+    cfg = hydra.compose(config_name="dataset_generation")
+
+    if cfg.logging:
+        logger = logging.getLogger(__name__)
+        # logs are written to file and stored in the logs folder
+        if not os.path.exists(os.path.join(_module_path, "logs")):
+            os.makedirs(os.path.join(_module_path, "logs"))
+        log_dir = os.path.join(_module_path, "logs")
+        log_filename = f"{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.log"
+        logging.basicConfig(
+            filename=os.path.join(log_dir, log_filename),
+            level=logging.DEBUG,
+        )
+
+    # parse and handle command line arguments
+    args = parse_arguments()
+
+    # check if the mode is set, if so overwrite config
+    if args.mode is None:
+        mode = cfg.mode  # PT or DT
+    else:
+        mode = args.mode
+        if mode != cfg.mode:
+            print(f"Mode {mode} is set via command line argument.")
+
+    if args.dataset_number is not None:
+        if cfg.dataset_nr != int(args.dataset_number):
+            print(
+                f"Dataset number {args.dataset_number} is set via command line argument."
+            )
+            cfg.dataset_nr = int(args.dataset_number)
+
+    if args.num_samples is not None:
+        if mode == "PT":
+            cfg.nr_samples = args.num_samples
+        elif mode == "DT":
+            warnings.warn(
+                "Setting the number of samples has no effect for the DT dataset."
+            )
+
+    logging.info(f"Generating {mode} dataset with {cfg.nr_samples} samples.")
+
+    # Load and configure the scene --------------------------------------------------------------------
+
+    scene_path = os.path.join(
+        _module_path, "scenes", f"scene{cfg.scene_nr}", "scene.xml"
+    )
+
+    su_coordinates = rt_utils.get_su_coordinates(cfg.placement)
+
+    # loading the scene and add the sensing units
+    # note: only one scene object can be loaded, to represent different antenna patterns,
+    # two simulation runs need to be executed
+    scene = rt_utils.init_scene(scene_path, cfg.f_c, su_coordinates)
+
+    scene_size = rt_utils.get_scene_size(scene)
+
+    # create another scene for the jammer to be able to simulate antenna patterns for the jammer that
+    # differ from the antenna patterns of legitimate transmitters
+    if cfg.jam_pattern == "iso":
+        jammer_pattern = "iso"
+    elif cfg.jam_pattern == "directional":
+        jammer_pattern = "tr38901"
+    else:
+        raise ValueError(
+            'Unknown jamming pattern. Please choose either "iso" or "directional".'
+        )
+
+    p_solver = srt.PathSolver()
+
+    # Compute some parameters which result from the configuration -------------------------------------
+
+    # number of available RBs (12 subcarriers per RB)
+    if cfg.bandwidth == 20e6 and cfg.subcarrier_spacing == 15e3:
+        num_rb = 110  # this is the common configuration, not the theoretically calculated 111
+    else:
+        num_rb = int(cfg.bandwidth / cfg.subcarrier_spacing) // cfg.subcarriers_per_rb
+
+    # some initialization with respect to the subcarriers of the FFT that are really in use
+    num_subcarriers = int(num_rb * cfg.subcarriers_per_rb)
+    idx_first_sc = (
+        cfg.nfft - num_subcarriers
+    ) // 2  # index of the lowest subcarrier in the FFT that is potentially in use
+    symbol_duration = cfg.slot_length / cfg.symbols_per_slot
+    fft_freq = (
+        srt.utils.subcarrier_frequencies(cfg.nfft, cfg.subcarrier_spacing) + cfg.f_c
+    )
+
+    # add previous parameters to the cfg object
+    with open_dict(cfg):
+        cfg.num_rb = num_rb
+        cfg.num_subcarriers = num_subcarriers
+        cfg.idx_first_sc = idx_first_sc
+
+    if mode == "PT":
+        generate_pt_dataset(cfg, scene)
+    elif mode == "DT":
+        generate_dt_dataset(cfg, scene)

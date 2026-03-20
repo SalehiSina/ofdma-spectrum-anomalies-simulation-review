@@ -1,0 +1,57 @@
+nr_samples: 2000  # Number of samples to generate
+batch_size: 32    # Samples are saved in batches to keep files at a reasonable size
+
+scene_nr: 0       # Scene number
+
+dataset_nr: 0     # Dataset number
+mode: 'PT'        # Can be PT (incl. jammer) or DT (corresponding to generated PT dataset)
+
+f_c: 3.75e9       # Carrier frequency in Hz
+
+min_tx: 3             # Minimum number of regular transmitters
+max_tx: 10            # Maximum number of regular transmitters
+tx_power: 20          # Transmit power of regular transmitter in dBm
+oob_suppression: -20  # Out-of-band suppression in dB
+
+placement: 'both' # Height for the SU placement, can be at Tx height (1.5 m), ceiling height (5 m) or both. Values are 'ceiling', 'tx_height', 'both'.
+
+jam_probability: 0.4        # Probability of a jammer being present in the scene
+jsr:                        # Jammer-to-signal ratio in dB
+  min: -6
+  max: 6
+  step: 3
+jam_pattern: 'directional'  # Jammer antenna pattern: 'directional' or 'iso'
+
+bandwidth: 20e6             # Bandwidth of the monitored band in Hz
+subcarrier_spacing: 15e3    # Subcarrier spacing in Hz
+subcarriers_per_rb: 12      # Number of subcarriers per resource block
+slot_length: 1e-3           # Slot length in seconds
+n_slots: 5                  # Number of slots for monitoring
+symbols_per_slot: 14        # Number of symbols per slot
+bits_per_symbol: 2          # Number of bits per symbol for QAM modulation
+nfft: 2048                  # Number of FFT points
+cp_len: 144                 # Cyclic prefix length in samples
+pilot_slots: [2]            # Indexes of the pilot symbols for channel estimation
+
+dynamic_range: 50           # Dynamic range of the spectrogram in dB
+snr_range: [-5, 20]         # Signal-to-noise ratio range in dB
+
+# Ray tracing parameters
+sionna:
+  tx_height: 1.5          # Transmitter height in meters
+  max_depth: 5            # Maximum number of reflections
+  num_rays: 1e6           # Number of rays started per source
+
+plots:
+  jammer_spectrogram: False
+  frequency_responses: False
+  su_spectrogram: False
+  all_spectrograms: False
+  scenario_2D: False
+  scenario_rendered: False
+
+logging: False
+
+# Only required for DT generation --------------------------------------------
+
+pos_std: 0.37     # Standard deviation of the position error in meters
