@@ -30,6 +30,37 @@ from src.utils.ofdm_utils import (
 )
 
 
+def calc_noise_power_dbm(bandwidth_hz, noise_figure_db=0, additional_impairments_db=0):
+    """Calculate the noise power in dBm for a given bandwidth and noise figure.
+
+    Parameters
+    ----------
+    bandwidth_hz : float
+        Bandwidth in Hz.
+    noise_figure_db : float, optional
+        Noise figure in dB. Default: 0.
+    additional_impairments_db : float, optional
+        Additional impairments in dB to prevent overly optimistic SNR values. Default: 0.
+
+
+    Returns
+    -------
+    noise_power_dbm : float
+        Noise power in dBm.
+    """
+    k = 1.380649e-23  # Boltzmann constant in J/K
+    T = 290  # Standard temperature in K
+
+    noise_power_dbm = (
+        10 * np.log10(k * T * bandwidth_hz)
+        + 30
+        + noise_figure_db
+        + additional_impairments_db
+    )
+
+    return noise_power_dbm
+
+
 def init_scene(scene_path, f_c, su_coordinates):
     """Initialize the Sionna scene.
 
@@ -339,7 +370,7 @@ def plot_scenario2D(scene_nr, sample, add_device_labels=False, su_coordinates=[]
     plt.show()
 
 
-def get_su_coordinates(placement, scene_nr=None):
+def get_su_coordinates(module_path):
     """Generate coordinates of the sensing units.
 
     The SUs are placed on the left and right side of every of the six
@@ -347,56 +378,23 @@ def get_su_coordinates(placement, scene_nr=None):
 
     Parameters
     ----------
-    placement : str
-        Placement height, can be 'low' (TX height, 1.5 m), 'ceiling' (4.9 m) or 'both'.
-    scene_nr : int, optional
-        If the scene number is provided, it is checked whether the sensing
-        units are placed at valid locations (not inside obstacles).
-
+    module_path : str
+        Path to the module, used to load the scene description for checking
+        if the sensing units are placed within an obstacle.
     Returns
     -------
     su_coords : list
         List of measurement points for the sensing units.
     """
 
-    # the lower coordinates are selected in a way, that the sensing units are placed
-    # at the edges of the production lines (5cm offset to be safely off the walls)
-    su_coords_low = [
-        [6.45, 11],
-        [11.55, 11],
-        [17.45, 11],
-        [22.55, 11],
-        [28.45, 11],
-        [33.55, 11],
-        [6.45, 29],
-        [11.55, 29],
-        [17.45, 29],
-        [22.55, 29],
-        [28.45, 29],
-        [33.55, 29],
-    ]
+    su_coordinates_filename = os.path.join(
+        module_path, "src", "conf", "su_coordinates.yaml"
+    )
 
-    su_coords_high = [[x, y] for x in [10, 20, 30] for y in [10, 20, 30]]
+    with open(su_coordinates_filename, "r") as file:
+        su_coordinates_data = yaml.safe_load(file)
 
-    if placement == "low":
-        su_height = [4.9] * len(su_coords_low)
-        su_coords = su_coords_low
-    elif placement == "high":
-        su_height = [1.5] * len(su_coords_high)
-        su_coords = su_coords_high
-    elif placement == "both":
-        su_height = [1.5] * len(su_coords_low) + [4.9] * len(su_coords_high)
-        su_coords = su_coords_low + su_coords_high
-    else:
-        raise ValueError("Placement not recognized.")
-
-    for i in range(len(su_coords)):
-        su_coords[i].append(su_height[i])
-
-        # If a scene number is provided, check if the sensing unit is enclosed within an obstacle
-        if scene_nr is not None:
-            if enclosed_in_obstacle(su_coords[i], scene_nr):
-                raise ValueError("Sensing unit is enclosed within an obstacle.")
+    su_coords = su_coordinates_data.get("su_coordinates", [])
 
     return su_coords
 
@@ -682,20 +680,17 @@ def create_spectrograms(sample, cfg, h, noise=False):
 
         # initialize the empty time signal, either with zeros or with noise
         time_signal = np.zeros(signal_len, dtype=complex)
-        signal_powers = []
 
         for tx_idx in range(len(sample.transmitters)):
 
             # convert CFR to time domain and do convolution of signal with channel
             cir = h_to_cir(h, su_idx, tx_idx)
 
+            # print(f"pathloss: {10*np.log10(np.sum(np.abs(cir)**2))} dB")
+
             user_signal_time = scsig.convolve(
                 user_signals_time[tx_idx], cir, mode="same"
             )
-            signal_powers.append(
-                np.mean(np.abs(user_signal_time[user_signal_time != 0]) ** 2)
-            )
-
             user_signal_spec = calc_complex_spectrogram(
                 user_signal_time,
                 cfg.nfft,
@@ -730,29 +725,9 @@ def create_spectrograms(sample, cfg, h, noise=False):
             else:
                 total_spec += user_signal_spec
 
-        # add noise according to a specified SNR. The noise level relates to the weakest signal
-        if noise:
-            weakest_signal_power = np.mean(signal_powers)
-            logging.debug(f"Weakest RX Signal power: {weakest_signal_power:.2f} dBm")
-            noise_power = weakest_signal_power / (10 ** (sample.snr / 10))
-            sample.noise_power_per_su[su_idx] = noise_power
-            logging.debug(f"Noise power: {10*np.log10(noise_power):.2f} dBm")
-            noise_signal = (
-                np.random.normal(size=len(time_signal))
-                + 1j * np.random.normal(size=len(time_signal))
-            ) * np.sqrt(noise_power / 2)
-            noise_spec = calc_complex_spectrogram(
-                noise_signal,
-                cfg.nfft,
-                cfg.nfft + cfg.cp_len,
-            )
-            noise_spec = crop_spectrogram_to_bandwidth(
-                noise_spec, cfg.idx_first_sc, cfg.num_subcarriers
-            )
+        signal_power = np.mean(np.sum(np.abs(total_spec) ** 2, axis=0))
 
-            total_spec += noise_spec
-
-        # add jammer to the signal
+        # add the jammer to the signal
         if len(sample.jammers) == 1:
 
             if su_idx == 0:
@@ -789,12 +764,36 @@ def create_spectrograms(sample, cfg, h, noise=False):
                 bounding_freq_only,
             )
 
+            jammer_power = np.mean(np.sum(np.abs(jammer_spec) ** 2, axis=0))
+            sample.sjr_by_su[su_idx] = 10 * np.log10(signal_power / jammer_power)
+
             total_spec += jammer_spec
+        else:
+            sample.sjr_by_su[su_idx] = np.inf
+
+        # add noise according to a specified SNR. The noise level relates to the weakest signal
+        if noise:
+            noise_signal = np.random.normal(
+                size=len(time_signal)
+            ) + 1j * np.random.normal(size=len(time_signal))
+            noise_signal = scale_time_signal_to_target_power(
+                noise_signal, cfg.p_noise_dbm
+            )
+            noise_spec = calc_complex_spectrogram(
+                noise_signal,
+                cfg.nfft,
+                cfg.nfft + cfg.cp_len,
+            )
+            noise_spec = crop_spectrogram_to_bandwidth(
+                noise_spec, cfg.idx_first_sc, cfg.num_subcarriers
+            )
+
+            noise_power = np.mean(np.sum(np.abs(noise_spec) ** 2, axis=0))
+            sample.snr_by_su[su_idx] = 10 * np.log10(signal_power / noise_power)
+
+            total_spec += noise_spec
 
         spec_dBm = 20 * np.log10(np.abs(total_spec))
-        spec_dBm = np.clip(
-            spec_dBm, a_min=np.max(spec_dBm) - cfg.dynamic_range, a_max=None
-        )
 
         sample.add_spectrogram(su_idx, spec_dBm)
 

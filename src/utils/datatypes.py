@@ -93,8 +93,9 @@ class Sample:
         self.transmitters = []
         self.jammers = []
         self.spectrograms = {}
-        self.snr = np.nan
         self.noise_power_per_su = {}
+        self.sjr_by_su = {}
+        self.snr_by_su = {}
 
     def add_transmitter(self, transmitter):
         """

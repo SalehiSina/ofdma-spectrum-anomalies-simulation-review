@@ -51,18 +51,15 @@ def generate_sample(cfg, scene, jammer_type):
 
     sample = Sample()
 
-    # random number of regular transmitters
+    # random number of legitimate transmitters
     num_tx = np.random.randint(cfg.min_tx, cfg.max_tx + 1)
 
-    # select random SNR (integer for easier analysis later on)
-    sample.snr = np.random.randint(cfg.snr_range[0], cfg.snr_range[1] + 1)
-
-    # assign resources to the regular transmitters
+    # assign resources to the legitimate transmitters
     allocated_resources = ofdm_utils.allocate_resources(
         num_tx, num_rb, cfg.n_slots, plot_allocation=False
     )
 
-    # place the regular transmitters at random positions
+    # place the legitimate transmitters at random positions
     # and add them to the sample
     for tx_idx in range(num_tx):
         tx_pos = rt_utils.get_random_tx_location(
@@ -195,7 +192,7 @@ def generate_sample(cfg, scene, jammer_type):
 def generate_dataset(cfg, scene):
     """Generate a dataset for the given scene.
 
-    The dataset consists of samples with different SNRs and jamming types.
+    The dataset consists of samples with different legitimate transmitter counts and jamming types.
     The dataset is stored in the datapath specified in the datapath.txt file.
 
     Parameters
@@ -322,7 +319,7 @@ if __name__ == "__main__":
         _module_path, "scenes", f"scene{cfg.scene_nr}", "scene.xml"
     )
 
-    su_coordinates = rt_utils.get_su_coordinates(cfg.placement)
+    su_coordinates = rt_utils.get_su_coordinates(_module_path)
 
     # loading the scene and add the sensing units
     # note: only one scene object can be loaded, to represent different antenna patterns,
@@ -362,10 +359,20 @@ if __name__ == "__main__":
         srt.utils.subcarrier_frequencies(cfg.nfft, cfg.subcarrier_spacing) + cfg.f_c
     )
 
+    p_noise_dbm = float(
+        rt_utils.calc_noise_power_dbm(
+            cfg.nfft * cfg.subcarrier_spacing,
+            cfg.su_noise_figure,
+            cfg.additional_impairments,
+        )
+    )
+    print(p_noise_dbm)
+
     # add previous parameters to the cfg object
     with open_dict(cfg):
         cfg.num_rb = num_rb
         cfg.num_subcarriers = num_subcarriers
         cfg.idx_first_sc = idx_first_sc
+        cfg.p_noise_dbm = p_noise_dbm
 
     generate_dataset(cfg, scene)

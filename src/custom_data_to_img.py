@@ -1,7 +1,7 @@
 """This script converts custom dataset samples into images for further processing.
 
-In addition, it generates a labels file containing the jammer type, the number of
-authorized transmitters, and the SNR for each sample. Also, a metadata file
+In addition, it generates a labels file containing the jammer type, and the number of
+legitimate transmitters for each sample. Also, a metadata file
 containing the minimum and maximum values of the spectrograms is generated to enable
 rescaling of the spectrograms back to their original values.
 """
@@ -73,6 +73,39 @@ def find_min_max_values(filenames):
     return min_val, max_val
 
 
+def flatten_snr_sjr_dicts(labels):
+    """Converts the snr_by_su and sjr_by_su nested dicts into separate list columns.
+
+    Transforms nested dicts like {"su_0": [val, val], "su_1": [val, val]} into
+    separate keys like "snr_by_su_su_0", "snr_by_su_su_1", etc., enabling
+    conversion to CSV format.
+
+    Parameters
+    ----------
+    labels : dict
+        Dictionary containing labels with "snr_by_su" and "sjr_by_su" as nested dicts.
+
+    Returns
+    -------
+    labels : dict
+        Dictionary with flattened SNR/SJR columns and original dicts removed.
+    """
+
+    # Flatten snr_by_su
+    if "snr_by_su" in labels:
+        snr_by_su_dict = labels.pop("snr_by_su")
+        for su_key, su_values in snr_by_su_dict.items():
+            labels[f"snr_by_su_{su_key}"] = su_values
+
+    # Flatten sjr_by_su
+    if "sjr_by_su" in labels:
+        sjr_by_su_dict = labels.pop("sjr_by_su")
+        for su_key, su_values in sjr_by_su_dict.items():
+            labels[f"sjr_by_su_{su_key}"] = su_values
+
+    return labels
+
+
 def samples_to_imgs_and_labels(
     data_path, dataset_nr, filename, total_sample_idx, labels, min_val, max_val
 ):
@@ -90,7 +123,7 @@ def samples_to_imgs_and_labels(
         Index of the current sample.
     labels : dict
         Dictionary containing the labels (jammer type and number
-        of authorized transmitters).
+        of legitimate transmitters).
     min_val : float
         Minimum value found in the spectrograms (for consistent scaling).
     max_val : float
@@ -102,7 +135,7 @@ def samples_to_imgs_and_labels(
         Updated index of the current sample.
     labels : dict
         Updated dictionary containing the labels (jammer type,
-        jammer power, number of authorized transmitters, SNR).
+        jammer power, number of legitimate transmitters).
         Only updated for PT type samples! For DT type samples, the
         it is returned as is.
     """
@@ -130,9 +163,19 @@ def samples_to_imgs_and_labels(
             labels["jammer_power"].append(np.nan)
             labels["jammer_location"].append(np.nan)
         labels["num_legitimate_transmitters"].append(len(sample.transmitters))
-        labels["snr"].append(sample.snr)
 
-        # get total allocated resources (for all authorized TX) and save as image
+        # Collect SNR and SJR data for each SU
+        for su_idx in sample.snr_by_su:
+            if su_idx not in labels["snr_by_su"]:
+                labels["snr_by_su"][su_idx] = []
+            labels["snr_by_su"][su_idx].append(sample.snr_by_su[su_idx])
+
+        for su_idx in sample.sjr_by_su:
+            if su_idx not in labels["sjr_by_su"]:
+                labels["sjr_by_su"][su_idx] = []
+            labels["sjr_by_su"][su_idx].append(sample.sjr_by_su[su_idx])
+
+        # get total allocated resources (for all legitimate TX) and save as image
         total_allocated_resources = get_total_allocated_resources(sample, 12, 14)
 
         resource_img = Image.fromarray(total_allocated_resources)
@@ -202,8 +245,9 @@ if __name__ == "__main__":
         "jammer_type": [],
         "jammer_power": [],
         "jammer_location": [],
-        "num_authorized_transmitters": [],
-        "snr": [],
+        "num_legitimate_transmitters": [],
+        "snr_by_su": {},
+        "sjr_by_su": {},
     }
 
     custom_files_dir = os.path.join(_datapath, f"{dataset_nr}", "custom")
@@ -242,6 +286,9 @@ if __name__ == "__main__":
             min_val,
             max_val,
         )
+
+    # Flatten nested SNR and SJR dicts into separate columns
+    labels = flatten_snr_sjr_dicts(labels)
 
     pd.DataFrame(labels).to_csv(
         os.path.join(_datapath, f"{dataset_nr}", "labels.csv"),
