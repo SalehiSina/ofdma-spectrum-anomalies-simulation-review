@@ -204,7 +204,7 @@ def generate_dataset(cfg, scene):
     """
 
     # generate which samples are jammed (incl. type) and which are normal
-    jammer_types = ["deceptive", "sweep", "barrage", "pilot"]
+    jammer_types = ["deceptive", "sweep", "barrage", "pilot", "random_hop"]
     no_samples_by_jammer = int(
         cfg.nr_samples * cfg.jam_probability // len(jammer_types)
     )
@@ -366,7 +366,6 @@ if __name__ == "__main__":
             cfg.additional_impairments,
         )
     )
-    print(p_noise_dbm)
 
     # add previous parameters to the cfg object
     with open_dict(cfg):

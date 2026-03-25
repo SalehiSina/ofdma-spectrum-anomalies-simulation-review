@@ -647,7 +647,7 @@ def create_spectrograms(sample, cfg, h, noise=False):
                 cfg.nfft,
                 cfg.nfft + cfg.cp_len,
                 cfg.subcarrier_spacing * cfg.nfft,
-                clip_db=cfg.noise_floor,
+                50,  # dynamic range in dB for plotting
                 plot=True,
             )
 

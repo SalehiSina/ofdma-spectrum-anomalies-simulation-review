@@ -397,8 +397,6 @@ def generate_pilot_jammer_signal(
                 slot_idx * symbols_per_slot + pilot_idx,
             ] = 1
 
-    jammer_signal_freq = jammer_signal_freq / np.sqrt(num_jammed_sc)  # normalize power
-
     # add random phase
     jammer_signal_freq = jammer_signal_freq * np.exp(
         1j * np.random.uniform(0, 2 * np.pi, jammer_signal_freq.shape)
@@ -432,10 +430,8 @@ def generate_barrage_jammer_signal(num_sc, num_symbols, nfft, cp_len):
 
     num_symbols_jammer = num_symbols + int(np.ceil(cp_len * num_symbols / nfft))
 
-    jammer_signal_freq = (
-        np.ones((num_sc, num_symbols_jammer))
-        * np.exp(2 * np.pi * 1j * np.random.uniform(0, 1, (num_sc, num_symbols_jammer)))
-        / np.sqrt(num_sc)
+    jammer_signal_freq = np.ones((num_sc, num_symbols_jammer)) * np.exp(
+        2 * np.pi * 1j * np.random.uniform(0, 1, (num_sc, num_symbols_jammer))
     )
 
     return jammer_signal_freq, False
@@ -492,12 +488,6 @@ def generate_deceptive_jammer_signal(
     bits_in = np.random.randint(0, 2, int(n_bits))
     symbols = constellation_mapping(bits_in, bits_per_symbols)
 
-    # normalize power to the allocated bandwidgth
-    allocated_sc = allocated_resources[user_idx].sum(axis=0).max() * sc_per_rb
-    symbols = symbols / np.sqrt(
-        allocated_sc
-    )  # scaling with sqrt because here it concers the amplitude
-
     # distribute the symbols on the allocated resource elements
     allocated_resource_elements = upsample_rb_to_re(
         allocated_resources[user_idx], sc_per_rb, sym_per_slot
@@ -534,6 +524,8 @@ def generate_sweep_jammer_signal(num_sc, num_symbols, subcarriers_per_rb, nfft, 
         to time domain.
     """
 
+    # since no CP is added, more OFDM symbols need to be considered to create a time
+    # signal of the same length as the user signal, which has CP
     num_symbols_jammer = num_symbols + int(np.ceil(cp_len * num_symbols / nfft))
     jammer_signal_freq = np.zeros((num_sc, num_symbols_jammer), dtype=complex)
 
@@ -571,11 +563,62 @@ def generate_sweep_jammer_signal(num_sc, num_symbols, subcarriers_per_rb, nfft, 
     if np.random.uniform() > 0.5:
         jammer_signal_freq = np.flip(jammer_signal_freq, axis=0)
 
-    # add random phase and scale power
-    jammer_signal_freq = (
-        jammer_signal_freq
-        * np.exp(1j * np.random.uniform(0, 2 * np.pi, jammer_signal_freq.shape))
-        / np.sqrt(num_jammed_sc)
+    # add random phase
+    jammer_signal_freq = jammer_signal_freq * np.exp(
+        1j * np.random.uniform(0, 2 * np.pi, jammer_signal_freq.shape)
+    )
+
+    # rotate so that the sweep does not always start at the highest / lowest frequency
+    jammer_signal_freq = np.roll(
+        jammer_signal_freq, np.random.randint(0, num_symbols_jammer), axis=1
+    )
+
+    return jammer_signal_freq, False
+
+
+def generate_random_hopping_tone_jammer_signal(num_sc, num_symbols, cp_len):
+    """Generate a random hopping jammer signal which transmits a
+    tone (sine signal) on a randomly hopping center frequency.
+    Additionally, the jammer has a certain duty cycle, i.e., it is
+    only active for a fraction of the time between the hops
+
+    Parameters
+    ----------
+    num_sc : int
+        Number of subcarriers.
+    num_symbols : int
+        Number of symbols.
+    cp_len : int
+        Length of the cyclic prefix.
+
+    Returns
+    -------
+    jammer_signal_freq : np.ndarray
+        Jammer signal in frequency domain.
+    add_cp : bool
+        If True, a cyclic prefix needs to be added when converting
+        to time domain.
+    """
+
+    # the missing CP is compensated by adding additional OFDM symbols to match the
+    # required length of the time signal
+    num_symbols_jammer = num_symbols + int(np.ceil(cp_len * num_symbols / num_sc))
+
+    hop_cycle = np.random.randint(2, num_symbols_jammer)
+    duty_cycle = np.random.uniform(0.2, 1)
+    duty_cycle_symbols = int(hop_cycle * duty_cycle)
+    if duty_cycle_symbols == 0:
+        # make sure the jammer is actually active
+        duty_cycle_symbols = 1
+
+    jammer_signal_freq = np.zeros((num_sc, num_symbols_jammer), dtype=complex)
+    for symbol_idx in range(0, num_symbols_jammer, hop_cycle):
+        jammed_sc = np.random.randint(0, num_sc)
+        jammer_signal_freq[jammed_sc, symbol_idx : symbol_idx + duty_cycle_symbols] = 1
+
+    # rotate so that the jammer might be also active at the beginning
+    jammer_signal_freq = np.roll(
+        jammer_signal_freq, np.random.randint(0, num_symbols_jammer), axis=1
     )
 
     return jammer_signal_freq, False
@@ -640,6 +683,10 @@ def generate_jammer_signal_freq(jammer_type, cfg, **kwargs):
             cfg.symbols_per_slot,
             cfg.pilot_slots,
         )
+    elif jammer_type == "random_hop":
+        jammer_signal, add_cp = generate_random_hopping_tone_jammer_signal(
+            cfg.num_subcarriers, cfg.n_slots * cfg.symbols_per_slot, cfg.cp_len
+        )
     else:
         raise ValueError(f"Jammer {jammer_type} type not implemented.")
 
@@ -694,7 +741,7 @@ def calc_spectrogram(
     plot=True,
     plot_title="Spectrogram",
 ):
-    """Calculate the spectrogram.
+    """Calculate the spectrogram and optionally plot it.
 
     Parameters
     ----------
@@ -710,6 +757,7 @@ def calc_spectrogram(
         Dynamic range in dB for clipping the spectrogram.
         Default: -50 dB.
         The low power values are clipped to this value below the maximum value.
+        Should be only applied for plotting.
     window : str
         Window function to use for the spectrogram.
         Default: "blackmanharris".
