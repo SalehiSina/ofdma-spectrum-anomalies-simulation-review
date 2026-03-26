@@ -6,7 +6,6 @@ Most configuration can be done in the config file at conf/dataset_generation.yam
 __docformat__ = "numpy"
 
 import os
-import sys
 
 import argparse
 import pickle as pkl
@@ -22,7 +21,6 @@ import sionna.rt as srt
 # import own modules
 _repo_name = "ofdma-spectrum-anomalies-simulation"
 _module_path = __file__[: __file__.find(_repo_name) + len(_repo_name)]
-sys.path.append(os.path.abspath(_module_path))
 
 from utils import rt_utils, ofdm_utils
 from utils.data_utils import get_datapath
