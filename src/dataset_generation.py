@@ -9,7 +9,7 @@ import os
 import sys
 
 import argparse
-import compress_pickle as cpkl
+import pickle as pkl
 from datetime import datetime
 import hydra
 import logging
@@ -238,7 +238,7 @@ def generate_dataset(cfg, scene):
                 ),
                 "wb",
             ) as f:
-                cpkl.dump(samples, f, compression="gzip")
+                pkl.dump(samples, f)
 
             samples = []
             batch_idx += 1

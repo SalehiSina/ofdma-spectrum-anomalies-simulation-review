@@ -2,6 +2,8 @@
 Contains the datatypes used in the project.
 """
 
+__docformat__ = "numpy"
+
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
@@ -73,7 +75,7 @@ class Sample:
 
     Particularly it contains spectrograms for each SU.
 
-    Attributes
+    Parameters
     ----------
     transmitters: list
         List of Transmitter objects.
