@@ -17,7 +17,7 @@ import yaml
 
 import sionna.rt as srt
 
-from src.utils.ofdm_utils import (
+from utils.ofdm_utils import (
     generate_user_signal_freq,
     generate_jammer_signal_freq,
     freq_signal_to_time_signal,
