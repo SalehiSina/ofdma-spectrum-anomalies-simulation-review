@@ -12,7 +12,7 @@ max_tx: 10            # Maximum number of regular transmitters
 tx_power: 10          # Transmit power of regular transmitter in dBm
 oob_suppression: -20  # Out-of-band suppression in dB
 
-jam_probability: 1        # Probability of a jammer being present in the scene
+jam_probability: 0.5        # Probability of a jammer being present in the scene
 jsr:                        # Jammer-to-signal ratio in dB
   min: -5
   max: 20
