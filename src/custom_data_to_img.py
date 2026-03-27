@@ -12,7 +12,7 @@ import os
 import sys
 
 import argparse
-import compress_pickle as cpkl
+import pickle as pkl
 from glob import glob
 import numpy as np
 import pandas as pd
@@ -59,7 +59,7 @@ def find_min_max_values(filenames):
     max_val = -np.inf
     for filename in filenames:
         with open(filename, "rb") as f:
-            samples = cpkl.load(f)
+            samples = pkl.load(f)
         for sample in samples:
             for su_idx in sample.spectrograms:
                 min_val = min(min_val, np.min(sample.spectrograms[su_idx]))
@@ -148,7 +148,7 @@ def samples_to_imgs_and_labels(
     )
 
     with open(filename, "rb") as f:
-        samples = cpkl.load(f)
+        samples = pkl.load(f)
 
     target_path = os.path.join(data_path, f"{dataset_nr}", "images")
 
@@ -254,7 +254,7 @@ if __name__ == "__main__":
     filenames = glob(
         os.path.join(
             custom_files_dir,
-            f"samples-*.gz",
+            f"samples-*.pkl",
         )
     )
 

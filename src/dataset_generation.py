@@ -232,7 +232,7 @@ def generate_dataset(cfg, scene):
                     _datapath,
                     f"{cfg.dataset_nr}",
                     "custom",
-                    f"samples-{batch_idx:04d}.gz",
+                    f"samples-{batch_idx:04d}.pkl",
                 ),
                 "wb",
             ) as f:
