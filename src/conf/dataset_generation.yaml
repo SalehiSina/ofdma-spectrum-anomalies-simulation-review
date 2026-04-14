@@ -13,10 +13,10 @@ tx_power: 10          # Transmit power of regular transmitter in dBm
 oob_suppression: -20  # Out-of-band suppression in dB
 
 jam_probability: 0.5        # Probability of a jammer being present in the scene
-jsr:                        # Jammer-to-signal ratio in dB
-  min: -5
-  max: 20
-  step: 4
+jam_power:                  # Jammer transmit power in dBm
+  min: 0
+  max: 30
+  step: 5                   
 jam_pattern: 'directional'  # Jammer antenna pattern: 'directional' or 'iso'
 
 bandwidth: 20e6             # Bandwidth of the monitored band in Hz

@@ -76,8 +76,8 @@ def generate_sample(cfg, scene, jammer_type):
         # jammer orientation is randomly rotated in the x-y-plane
         # important due to directional antenna pattern
         jammer_orientation = [np.random.uniform(0, 2 * np.pi), 0, 0]
-        jammer_power = cfg.tx_power - np.random.choice(
-            np.arange(cfg.jsr.min, cfg.jsr.max + 1, cfg.jsr.step)
+        jammer_power = np.random.choice(
+            np.arange(cfg.jam_power.min, cfg.jam_power.max + 1, cfg.jam_power.step)
         )
         jammer = Jammer(
             jammer_pos,
