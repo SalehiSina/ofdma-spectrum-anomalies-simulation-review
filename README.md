@@ -1,12 +1,22 @@
 # OFDMA Spectrum Anomaly Simulation
 
+
+
+## Abstract
+
+This repository provides a modular, open-source simulation framework for generating physics-driven datasets of spectrum anomalies in OFDMA systems. It combines Blender and the Mitsuba add-on for ray-traced channel generation with Sionna-based processing to produce labeled spectrograms suitable for training and benchmarking machine learning models for spectrum anomaly detection. The framework supports configurable scenarios (legitimate transmitters, jammers, varied propagation conditions), produces detailed labels for each sample, and includes scripts to reproduce dataset generation and evaluation. The code and datasets accompany the paper "Spectrum Anomaly Detection in OFDMA Systems: Simulation Framework and Benchmark Dataset", available on arXiv, and are intended to enable reproducible research and quantitative comparison of anomaly detection methods.
+
+The dataset is available for download at Zenodo:
+
+ [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.20341906.svg)](https://doi.org/10.5281/zenodo.20341906)
+
 ## Introduction
 
 This repository contains code for simulating spectrum anomalies in OFDMA systems and generate spectrograms to work on the problem of spectrum anomaly detection. The simulation is based on ray tracing, which is executed in a scene created with Blender and the Mitsuba Add-on. The generated spectrograms can be used to train machine learning models for anomaly detection.
 
 ## Scene Generation
 
-The key of this simulation is a scene, in which ray tracing is executed to obtain channel frequency responses (CFRs) between transmitters and sensing units. The corresponding scene is created with a Python script in Blender, which creates the scene and exports it in a format that can be loaded by sionna.
+The key of this simulation is a scene, in which ray tracing is executed to obtain channel frequency responses (CFRs) between transmitters and sensing units. The corresponding scene is created with a Python script in Blender, which creates the scene and exports it in a format that can be loaded by Sionna.
 
 ### Requirements
 
@@ -15,21 +25,21 @@ The key of this simulation is a scene, in which ray tracing is executed to obtai
 
 ### Usage
 
-Open Blender and go to the Scripting workspace. Open the `blender-python/create_scenario_with_obstacles.py`. It creates a scene according to the specifications in `blender-python\conf\scene_attributes.yaml`. The scene is exported to the `scenes` directory in the repository root. The exported scene can then be loaded by sionna for ray tracing.
+Open Blender and go to the Scripting workspace. Open the `blender-python/create_scenario_with_obstacles.py`. It creates a scene according to the specifications in `blender-python\conf\scene_attributes.yaml`. The scene is exported to the `scenes` directory in the repository root. The exported scene can then be loaded by Sionna to perform ray tracing.
 
 ## Data Generation
 
 ### Requirements
 
-The simulation workflow has been tested with Python 3.12 and Sionna 1.2.1.
+The simulation workflow has been developed with Python 3.10.4 and Sionna 1.2.2. The requirements for the Python virtual environment are listed in the file `requirements_simulation.txt`.
 
 ### Create custom intermediate data
 
-Entry path for the simulation is the script `src/dataset_generation.py`, which executes the ray tracing and creates custom intermediate data. Simulation parameters can be configured in the file `src\conf\dataset_generation.yaml`. The coordinates of the sensing units are specified in the file `src\conf\su_coordinates.yaml`. The generated data is stored in the directory that is specified in the file `datapath.txt` which is located in the repository root. In this directory, a subdirectory with the specified dataset number is created, in which the custom intermediate data is stored in a subdirectory named `custom`.
+Entry path for the simulation is the script `src/dataset_generation.py`, which executes the ray tracing and creates custom intermediate data. Simulation parameters can be configured in the file `src\conf\dataset_generation.yaml`. The dataset number and number of samples can also be configured via the command line, run with `-h` for details.The coordinates of the sensing units are specified in the file `src\conf\su_coordinates.yaml`. The generated data is stored in the directory that is specified in the file `datapath.txt` which is located in the repository root. In this directory, a subdirectory with the specified dataset number is created, in which the custom intermediate data is stored in a subdirectory named `custom`.
 
 ### Create image data and labels
 
-To further utilize the data, the script `src/create_image_data_and_labels.py` can be executed, which creates spectrogram images and labels from the custom intermediate data. The generated spectrograms are stored in the same directory as the custom intermediate data in the subdirectory `images`. Two types of images are generated:
+To further utilize the data, the script `src/create_image_data_and_labels.py` can be executed, which creates spectrogram images and labels from the custom intermediate data. The dataset number can be configured via the command line, run `python src/create_image_data_and_labels.py -d <dataset_number>` to specify it. The generated spectrograms are stored in the same directory as the custom intermediate data in the subdirectory `images`. Two types of images are generated:
 * Spectrograms per sensing unit (SU): The images are normalized spectrograms and the filename format is `spectrogram-{sample_idx}-{su_idx}.png`. The spectrograms are normalized over the entire dataset, so the same minimum and maximum values are used for all spectrograms. This allows for a consistent representation of the spectrograms across different samples and sensing units. The minimum and maximum values are coontained in the file `spectrogram_min_max.csv`, which is stored in the root of the dataset folder.
 * Resource allocation images: Those are binary images that show the resource allocation of the transmitters. The filename format is `alloc_res-{sample_idx}.png`.
 
