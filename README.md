@@ -10,9 +10,7 @@ The dataset is available for download at Zenodo:
 
  [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.20341906.svg)](https://doi.org/10.5281/zenodo.20341906)
 
-## Introduction
-
-This repository contains code for simulating spectrum anomalies in OFDMA systems and generate spectrograms to work on the problem of spectrum anomaly detection. The simulation is based on ray tracing, which is executed in a scene created with Blender and the Mitsuba Add-on. The generated spectrograms can be used to train machine learning models for anomaly detection.
+The three steps towards generating a dataset, namely scene generation, data generation, and creating image data and labels, are described in the following sections.
 
 ## Scene Generation
 
