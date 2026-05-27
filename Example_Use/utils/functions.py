@@ -1,7 +1,7 @@
 
 import torch
 import numpy as np
-
+import matplotlib.pyplot as plt
 import yaml
 
 
@@ -95,3 +95,114 @@ def flip_x_axis(img: torch.Tensor) -> torch.Tensor:
         Flipped image tensor
     """
     return torch.flip(img, dims=[-1])
+
+
+
+# --------------------------------
+# Low-pass filter
+# --------------------------------
+
+
+def low_pass_filter_fft(image: np.ndarray, cutoff: float) -> np.ndarray:
+    """
+    Apply a low-pass filter using the Fourier transform.
+
+    Parameters
+    ----------
+    image : np.ndarray
+        2D grayscale image.
+    cutoff : float
+        Cutoff frequency radius (in pixels).
+
+    Returns
+    -------
+    np.ndarray
+        Filtered image.
+    """
+
+    if image.ndim != 2:
+        raise ValueError("Input must be a 2D array")
+
+    # Fourier transform
+    F = np.fft.fft2(image)
+    F_shift = np.fft.fftshift(F)
+
+    h, w = image.shape
+    cy, cx = h // 2, w // 2
+
+    # Create circular low-pass mask
+    Y, X = np.ogrid[:h, :w]
+    mask = (Y - cy)**2 + (X - cx)**2 <= cutoff**2
+
+    # Apply mask
+    F_shift_filtered = F_shift * mask
+
+    # Inverse Fourier transform
+    F_ishift = np.fft.ifftshift(F_shift_filtered)
+    image_filtered = np.fft.ifft2(F_ishift)
+
+    return np.real(image_filtered)
+
+
+# --------------------------------
+# Latent Similarity
+# --------------------------------
+
+def max_cosine_similarities_plot(vectors):
+    """
+    vectors: array-like of shape (20, D) 
+             (20 vectors of dimension D)
+
+    Returns:
+        np.ndarray of shape (20,)
+        each entry = mean cosine similarity of that vector to the others
+    """
+    vectors = np.asarray(vectors)
+    
+    # normalize vectors to unit length
+    norms = np.linalg.norm(vectors, axis=1, keepdims=True)
+    vectors_norm = vectors / norms
+
+    # cosine similarity matrix (20 x 20)
+    cos_sim_matrix = vectors_norm @ vectors_norm.T
+
+    # exclude self-similarity by masking diagonal
+    np.fill_diagonal(cos_sim_matrix, 0)
+    # maximum similarity to another vector
+    max_cos_sim = cos_sim_matrix.max(axis=1)
+    plt.plot(np.arange(0,21), max_cos_sim, marker='o', linestyle='--')
+    plt.xticks(range(0,21))
+    plt.xlabel("SUs")
+    plt.ylim(0.5,1)
+    plt.ylabel("Cosine Similarity")
+    plt.title("Similarity of the SUs in the latent space")
+    plt.grid()
+    plt.show()
+    return max_cos_sim
+
+
+
+def max_cosine_similarities(vectors):
+    """
+    vectors: array-like of shape (20, D) 
+             (20 vectors of dimension D)
+
+    Returns:
+        np.ndarray of shape (20,)
+        each entry = mean cosine similarity of that vector to the others
+    """
+    vectors = np.asarray(vectors)
+    
+    # normalize vectors to unit length
+    norms = np.linalg.norm(vectors, axis=1, keepdims=True)
+    vectors_norm = vectors / norms
+
+    # cosine similarity matrix (20 x 20)
+    cos_sim_matrix = vectors_norm @ vectors_norm.T
+
+    # exclude self-similarity by masking diagonal
+    np.fill_diagonal(cos_sim_matrix, 0)
+    # maximum similarity to another vector
+    max_cos_sim = cos_sim_matrix.max(axis=1)
+ 
+    return max_cos_sim

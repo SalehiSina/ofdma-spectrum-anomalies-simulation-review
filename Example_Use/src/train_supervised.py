@@ -61,11 +61,9 @@ train_transform = trans.Compose(
 # ------------------------------------------------
 
 def get_dataset(root, df, load_dt_images=False):
-    #num_train_normal = int(config['supervised']["num_train_normal"])
-    num_train_normal = 2
+    num_train_normal = int(config['supervised']["num_train_normal"])
     num_valid_normal = int(config["supervised"]["num_valid_normal"])
-    #num_train_abnormal = int(config["supervised"]["num_train_anomaly"])
-    num_train_abnormal = 2
+    num_train_abnormal = int(config["supervised"]["num_train_anomaly"])
     num_valid_abnormal = int(config["supervised"]["num_valid_anomaly"])
 
     jammers = ['barrage', 'deceptive', 'pilot', 'sweep']

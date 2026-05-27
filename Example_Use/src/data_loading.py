@@ -238,3 +238,74 @@ class SpectralImagesSupervised(Dataset):
             float(self.num_transmitters[index]),
             float(self.jammer_power[index]),
         )
+
+
+
+class SpectralImagesSample(Dataset):
+    """
+    Dataset class for loading spectrogram images from a certain sample.
+    """
+
+    def __init__(self, sample_id, path: str, transform, dataframe, load_dt_images=False):
+
+        if load_dt_images:
+            raise NotImplementedError("Loading dt_images is currently not implemented.")
+
+        self.transform = transform  
+        self.dir = os.path.join(path, "Images")  # directory where spectrogram PNGs are stored
+        self.id = []
+        self.frames = []  
+        self.jammer = []  # list to hold jam type labels (string initially, mapped later)
+        self.num_transmitters = []  # list to hold number of legitimate transmitters for each example
+        self.jammer_power = []  # list to hold jammer power value for each example
+
+        # Load ospectrogram global min/max from metadata CSV
+        min_val, max_val = load_spectrogram_min_max(path)
+        # Compute min/max after the same aggregation used for inputs (so normalization is consistent)
+        min_aggregate_val, max_aggregate_val = compute_aggregate_min_max(min_val, max_val)
+
+        if os.path.isdir(self.dir):
+
+            for su in range(21):  # there are 21 sensing unit per sample (0..20)
+                su_id = f'{sample_id:05d}-{su:02d}'  # format example and sensing unit into an id string
+                self.id.append(su_id)  
+
+                img = cv2.imread(
+                    os.path.join(self.dir, f"spectrogram-{su_id}.png"), cv2.IMREAD_GRAYSCALE
+                )
+
+                img = (img / 255) * (max_val - min_val) + min_val
+                img = aggregate_subcarriers(img, num_sc_per_rb=12)
+
+                # Normalize aggregated image to [0, 1] using aggregated min/max
+                img = (img - min_aggregate_val) / (max_aggregate_val - min_aggregate_val)
+
+                # If a transform is provided, apply it (albumentations expects keyword 'image')
+                if self.transform is not None:
+                    img_transformed = self.transform(image=img)
+                    self.frames.append(img_transformed["image"])
+                else:
+                    self.frames.append(img)
+
+                self.jammer.append(dataframe.loc[dataframe['name'] == sample_id, 'jammer_type'].iloc[0])
+                self.num_transmitters.append(
+                    dataframe.loc[dataframe['name'] == sample_id, 'num_legitimate_transmitters'].iloc[0]
+                )
+                self.jammer_power.append(dataframe.loc[dataframe['name'] == sample_id, 'jammer_power'].iloc[0])
+
+            # Print available label distribution (strings) for debugging
+            print("Sample Labels: \n", np.unique(self.jammer, return_counts=True))
+
+    def __len__(self) -> int:
+        # Return number of cached frames
+        return len(self.frames)
+
+    def __getitem__(self, index):
+        # Return a tuple for training/evaluation: (id, image, jammer_class, num_transmitters, jammer_power)
+        return (
+            self.id[index],
+            self.frames[index],
+            self.jammer[index],
+            float(self.num_transmitters[index]),
+            float(self.jammer_power[index]),
+        )

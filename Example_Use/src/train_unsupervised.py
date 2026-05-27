@@ -210,22 +210,22 @@ def train(
 
             torch.save(
                 encoder.state_dict(),
-                os.path.join(out_dir, f"encoder_final_latent.pt"),
+                os.path.join(out_dir, f"encoder_final.pt"),
                 )
             torch.save(
                 decoder.state_dict(),
-                os.path.join(out_dir, f"decoder_final_latent.pt")
+                os.path.join(out_dir, f"decoder_final.pt")
                 )
         
             if np.nanmean(valid_Rec_loss) < 0.9 * val:
                 val = np.mean(valid_Rec_loss)
                 torch.save(
                     encoder.state_dict(),
-                    os.path.join(out_dir, f"encoder_best_latent.pt"),
+                    os.path.join(out_dir, f"encoder_best.pt"),
                     )
                 torch.save(
                     decoder.state_dict(),
-                    os.path.join(out_dir, f"decoder_best_latent.pt"),
+                    os.path.join(out_dir, f"decoder_best.pt"),
                     )
 
 
