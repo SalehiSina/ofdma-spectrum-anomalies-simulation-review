@@ -288,7 +288,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--data_path", type=str, required=True)
     parser.add_argument("--Max_LR", type=float, required=True)
-    parser.add_argument("--initial_weights", type=str, default=50)
+    parser.add_argument("--initial_weights", type=str, default=None)
     args = parser.parse_args()
     data_path = args.data_path
     max_lr = args.Max_LR
