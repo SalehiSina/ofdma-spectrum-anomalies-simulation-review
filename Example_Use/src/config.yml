@@ -2,7 +2,7 @@
 
 hyperparameters:
   train_batch_size: 1536
-  inference_batch_size: 64
+  inference_batch_size: 21
   supervised:
     n_epochs: 400
   unsupervised:
