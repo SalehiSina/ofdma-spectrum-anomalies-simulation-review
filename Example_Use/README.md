@@ -49,10 +49,22 @@ To train the supervised (ResNet) model, run:
 python src/train_unsupervised.py --data_path ".\Dataset" --Max_LR 1e-2
 ```
 
-Or, to fine-tune the ResNet18 model using the pretrained weights located at *initial\_path*, run:
+Or, to fine-tune the ResNet18 model using the pretrained weights located at `initial_path`, run:
 
 ```bash
 python src/train_unsupervised.py --data_path ".\Dataset" --Max_LR 1e-2 --initial_weights "initial_path"
 ```
 
+
+The trained weights are provided in the `Example_Use/Weights` directory. 
+You can use the jupyter notebooks provided to evaluate each method and visualise the detected anomalies for each sample.
+
+
+---
+
+# Model Preference
+
+We recommend the VAE model based on two key advantages:
+* Its ability to generalize detection performance to previously unseen jammer types
+* It's possible to localize jammers within a spectrum image for specific jammer types
 
