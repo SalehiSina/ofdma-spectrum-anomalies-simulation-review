@@ -1,0 +1,37 @@
+
+
+hyperparameters:
+  train_batch_size: 1536
+  inference_batch_size: 21
+  supervised:
+    n_epochs: 400
+  unsupervised:
+    n_epochs: 1000
+
+model:
+  latent_dim: 128  # dimensionality of the latent space (for VAE)
+  img_size:
+    time: 110  # time
+    freq: 70   # frequency
+
+  channels: 1  # number of image channels
+  n_SUs: 21
+dataset_nr: 4
+
+# data split config
+supervised:
+  num_train_normal: 5900
+  num_train_anomaly: 5900
+
+  num_valid_normal: 100
+  num_valid_anomaly: 100
+
+  num_test_normal: 1000
+  num_test_anomaly: 2500
+
+unsupervised:
+  num_train_normal: 8800
+  num_valid_normal: 200
+
+  num_test_normal: 1000
+  num_test_anomaly: 2500
