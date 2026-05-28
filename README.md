@@ -14,7 +14,11 @@ The three steps towards generating a dataset, namely scene generation, data gene
 
 ## Scene Generation
 
-The key of this simulation is a scene, in which ray tracing is executed to obtain channel frequency responses (CFRs) between transmitters and sensing units. The corresponding scene is created with a Python script in Blender, which creates the scene and exports it in a format that can be loaded by Sionna.
+The key of this simulation is a scene, in which ray tracing is executed to obtain channel frequency responses (CFRs) between transmitters and sensing units. The corresponding scene is created with a Python script in Blender, which creates the scene and exports it in a format that can be loaded by Sionna. The scene used to generate the dataset, together with the sensing units and a random set of legitimate transmitters and a jammer, is shown in the figure below.
+
+<p align="center">
+    <img src="./figures/scene0_render.png" width="500">
+</p>
 
 ### Requirements
 
@@ -49,16 +53,50 @@ In addition, in the same directory, a file named `labels.csv` is created, which 
 * `snr_by_su_<su_idx>`: Signal-to-noise ratio (SNR) at each sensing unit (SU) in dB
 * `sjr_by_su_<su_idx>`: Signal-to-jammer ratio (SJR) at each sensing unit (SU) in dB
 
+Below are example images of the generated spectrograms.
+
+<table align="center" style="border: none;">
+  <tr>
+    <td align="center">
+      <img src="./assets/example_barrage_sample_14000_su_4.png" width="300"><br>
+      <b>Barrage Jammer</b>
+    </td>
+    <td align="center">
+      <img src="./assets/example_deceptive_sample_10000_su_2.png" width="300"><br>
+      <b>Deceptive Jammer</b>
+    </td>
+  </tr>
+  <tr>
+    <td align="center">
+      <img src="./assets/example_pilot_sample_16002_su_16.png" width="300"><br>
+      <b>Pilot Jammer</b>
+    </td>
+    <td align="center">
+      <img src="./assets/example_random_hop_sample_18001_su_16.png" width="300"><br>
+      <b>Random Hop Jammer</b>
+    </td>
+  </tr>
+  <tr>
+    <td colspan="2" align="center">
+      <img src="./assets/example_sweep_sample_12006_su_19.png" width="300"><br>
+      <b>Sweep Jammer</b>
+    </td>
+  </tr>
+</table>
 
 ### Load the data
 
 As a starting point, the notebook `notebooks/plot_spectrograms.ipynb` shows how to load the generated spectrograms (and labels) and plot them.
 
 
-## Documentation
+### Documentation
 
-Generate the documentation from the root of the repository with the following command:
+Generate the documentation for the simulation framework from the root of the repository with the following command:
 
 ```bash
 pydoctor --config pydoctor.ini
 ```
+
+## Detection
+
+The baseline models for supervised and unsupervised detection are separated from the simulation framework. The corresponding code and supplements can be found in the `Example_Use` folder, which also has a separate README file. The code for the baseline models is provided as a starting point and can be further developed and improved. The code for the baseline models is not required to generate the dataset, but it can be used to evaluate the generated dataset and to provide a benchmark for future research on spectrum anomaly detection in OFDMA systems.
