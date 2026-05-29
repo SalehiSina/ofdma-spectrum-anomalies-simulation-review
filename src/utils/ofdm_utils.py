@@ -213,7 +213,7 @@ def upsample_rb_to_re(rb, n_subcarriers_per_rb, n_symbols_per_rb):
     return re
 
 
-def get_total_allocated_resources(sample, subcarriers_per_rb, symbols_per_slot):
+def get_total_allocated_resources(sample, subcarriers_per_rb, symbols_per_slot, return_binary=True):
     """Get the total allocated resources for all transmitters in the sample.
 
     Parameters
@@ -224,6 +224,11 @@ def get_total_allocated_resources(sample, subcarriers_per_rb, symbols_per_slot):
         Number of subcarriers per resource block.
     symbols_per_slot : int
         Number of symbols per slot.
+    return_binary : bool
+        If True, the returned array is binary, where True indicates an allocated resource.
+        Otherwise, in the return array, 0 equals not allocated, and larger values indicate
+        the corresponding transmitter index (starting with 1) that is allocated on the resource.
+        Default: True.
 
     Returns
     -------
@@ -233,12 +238,14 @@ def get_total_allocated_resources(sample, subcarriers_per_rb, symbols_per_slot):
     """
     # find all allocated resource  blocks for filtering
     total_allocated_resources = np.zeros_like(
-        sample.transmitters[0].resources, dtype=np.bool_
+        sample.transmitters[0].resources, dtype=np.int
     )
-    for tx in sample.transmitters:
-        total_allocated_resources = np.logical_or(
-            total_allocated_resources, tx.resources
-        )
+    for tx_id, tx in enumerate(sample.transmitters):
+        total_allocated_resources = total_allocated_resources + tx.resources * (tx_id + 1)
+
+    if return_binary:
+        total_allocated_resources = total_allocated_resources > 0
+
     total_allocated_resources = upsample_rb_to_re(
         total_allocated_resources, subcarriers_per_rb, symbols_per_slot
     )

@@ -1,6 +1,6 @@
 # Anomaly Detection
 
-Here we implement and evaluate two approches for anomaly detection in ofdma systems using our dataset.
+Here we implement and evaluate two approches for anomaly detection in OFDMA systems using our dataset.
 
 <p>
   <img src="Figures/Pilot_sample.jpg" width="600">
@@ -12,9 +12,9 @@ Here we implement and evaluate two approches for anomaly detection in ofdma syst
 
 Download the dataset from the following link:
 
-https://link.com
+ [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.20341906.svg)](https://doi.org/10.5281/zenodo.20341906)
 
-After downloading the dataset, place it inside the `Example_Use/Dataset` directory.
+After downloading the dataset, unzip and place it inside the `Example_Use/Dataset` directory.
 
 ---
 

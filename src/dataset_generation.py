@@ -223,7 +223,14 @@ def generate_dataset(cfg, scene):
 
         logging.debug(f"Sample {idx_sample} -----------------------")
 
-        samples.append(generate_sample(cfg, scene, sample_type[idx_sample]))
+        for _ in range(3):
+            # very rarely, a ValueError occurs that needs to be caught and
+            # is handled by simply trying to generate the sample again
+            try:
+                samples.append(generate_sample(cfg, scene, sample_type[idx_sample]))
+                break
+            except ValueError:
+                print("ValueError occured in sample generation - Regenerating sample.")
 
         if len(samples) == cfg.batch_size or idx_sample == cfg.nr_samples - 1:
             # store if batch is full or if it is the last sample
