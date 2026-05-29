@@ -107,7 +107,7 @@ def flatten_snr_sjr_dicts(labels):
 
 
 def samples_to_imgs_and_labels(
-    data_path, dataset_nr, filename, total_sample_idx, labels, min_val, max_val
+    data_path, dataset_nr, filename, total_sample_idx, labels, min_val, max_val, binary_resource_img=True
 ):
     """Creates images for easier processing of the dataset from the custom data format.
 
@@ -128,6 +128,11 @@ def samples_to_imgs_and_labels(
         Minimum value found in the spectrograms (for consistent scaling).
     max_val : float
         Maximum value found in the spectrograms (for consistent scaling).
+    binary_resource_img : bool
+        If True, the resource allocation image will be binary.
+            If False, the resource allocation image will contain the corresponding
+            transmitter index (starting with 1) for allocated resources, and 0 for non-allocated.
+            Default: True.
 
     Returns
     -------
@@ -176,7 +181,7 @@ def samples_to_imgs_and_labels(
             labels["sjr_by_su"][su_idx].append(sample.sjr_by_su[su_idx])
 
         # get total allocated resources (for all legitimate TX) and save as image
-        total_allocated_resources = get_total_allocated_resources(sample, 12, 14)
+        total_allocated_resources = get_total_allocated_resources(sample, 12, 14, binary_resource_img).astype(np.uint8)
 
         resource_img = Image.fromarray(total_allocated_resources)
         resource_img.save(
@@ -226,6 +231,16 @@ def parse_arguments():
         type=int,
         required=False,
         help="Dataset number to process.",
+    )
+
+    parser.add_argument(
+        "--binary-resource-img",
+        type=bool,
+        default=False,
+        required=False,
+        help="If True, the resource allocation image will be binary. If False,"
+          " the resource allocation image will contain the corresponding transmitter"
+          " index (starting with 1) for allocated resources, and 0 for non-allocated.",
     )
 
     args = parser.parse_args()
@@ -285,6 +300,7 @@ if __name__ == "__main__":
             labels,
             min_val,
             max_val,
+            binary_resource_img=args.binary_resource_img,
         )
 
     # Flatten nested SNR and SJR dicts into separate columns
