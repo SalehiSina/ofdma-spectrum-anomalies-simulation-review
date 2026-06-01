@@ -2,8 +2,8 @@
 
 Here we implement and evaluate two approches for anomaly detection in OFDMA systems using our dataset.
 
-<p align="center">
-  <img src="Figures/anomaly_sample.jpg" width="600">
+<p>
+  <img src="Figures/Pilot_sample.jpg" width="600">
 </p>
 
 ---
