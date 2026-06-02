@@ -114,3 +114,19 @@ pydoctor --config pydoctor.ini
 ## Detection
 
 The baseline models for supervised and unsupervised detection are separated from the simulation framework. The corresponding code and supplements can be found in the `Example_Use` folder, which also has a separate README file. The code for the baseline models is provided as a starting point and can be further developed and improved. The code for the baseline models is not required to generate the dataset, but it can be used to evaluate the generated dataset and to provide a benchmark for future research on spectrum anomaly detection in OFDMA systems.
+
+# Citation
+
+If your are using the code or dataset in this repository, please cite the following paper:
+
+```bibtex
+@misc{schösser2026spectrumanomalydetectionofdma,
+      title={Spectrum Anomaly Detection in OFDMA Systems: Simulation Framework and Benchmark Dataset}, 
+      author={Anton Schösser and Mohammadhadi Salehi and Sinuo Ma and Philipp Schulz and Gerhard Fettweis},
+      year={2026},
+      eprint={2606.02102},
+      archivePrefix={arXiv},
+      primaryClass={eess.SP},
+      url={https://arxiv.org/abs/2606.02102}, 
+}
+```
