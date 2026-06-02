@@ -2,18 +2,18 @@ cff-version: 1.2.0
 message: "If you use this work, please cite it as below."
 title: "Spectrum Anomaly Detection in OFDMA Systems: Simulation Framework and Benchmark Dataset"
 authors:
-  - family-names: "Schösser"
-    given-names: "Anton"
-  - family-names: "Salehi"
-    given-names: "Mohammadhadi"
-  - family-names: "Ma"
-    given-names: "Sinuo"
-  - family-names: "Schulz"
-    given-names: "Philipp"
-  - family-names: "Fettweis"
-    given-names: "Gerhard"
-year: 2026
-doi: "10.48550/arXiv.2606.02102"
+  - family-names: Schösser
+    given-names: Anton
+  - family-names: Salehi
+    given-names: Mohammadhadi
+  - family-names: Ma
+    given-names: Sinuo
+  - family-names: Schulz
+    given-names: Philipp
+  - family-names: Fettweis
+    given-names: Gerhard
+date-released: 2026-06-01
+doi: 10.48550/arXiv.2606.02102
 url: "https://arxiv.org/abs/2606.02102"
-type: "article"
+type: article
 repository-code: "https://github.com/akdd11/ofdma-spectrum-anomalies-simulation"
