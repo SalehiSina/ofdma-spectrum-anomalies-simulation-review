@@ -22,6 +22,16 @@ The key of this simulation is a scene, in which ray tracing is executed to obtai
 
 * Blender 4.2.19 LTS
 * Mitsuba Add-on for Blender 0.4.0 (follow the installation instructions [here](https://github.com/mitsuba-renderer/mitsuba-blender))
+* The Python script uses PyYAML to read the configuration file `blender-python\conf\scene_attributes.yaml`. Install it in the Blender Python environment by running
+
+```python
+import subprocess
+import sys
+
+subprocess.check_call([sys.executable, "-m", "pip", "install", "PyYAML"])
+```
+
+in the Blender `Scripting` tab.
 
 ### Usage
 
