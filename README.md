@@ -46,12 +46,12 @@ To further utilize the data, the script `src/create_image_data_and_labels.py` ca
 * Resource allocation images: Those images contain the resource allocation of the transmitters. They are 8-bit PNG images, in which 0 corresponds to not allocated and any other value corresponds to the allocated transmitter index. The filename format is `alloc_res-{sample_idx}.png`. 
 
 In addition, in the same directory, a file named `labels.csv` is created, which contains the following labels for each sample:
-* `jammer_type`: Type of the jammer (if there is no jammer, the value is "no jammer")
-* `jammer_power`: Transmit power of the jammer in dBm (if there is no jammer, the value is NaN)
-* `jammer_location`: Location of the jammer (if there is no jammer, the value is NaN)
+* `jammer_type`: Type of the jammer ("no jammer" if there is no jammer)
+* `jammer_power`: Transmit power of the jammer in dBm (empty if there is no jammer)
+* `jammer_location`: Location of the jammer (empty if there is no jammer)
 * `num_legitimate_transmitters`: Number of legitimate transmitters in the scene
 * `snr_by_su_<su_idx>`: Signal-to-noise ratio (SNR) at each sensing unit (SU) in dB
-* `sjr_by_su_<su_idx>`: Signal-to-jammer ratio (SJR) at each sensing unit (SU) in dB
+* `sjr_by_su_<su_idx>`: Signal-to-jammer ratio (SJR) at each sensing unit (SU) in dB  (inf if there is no jammer)
 
 
 ### Load the data
