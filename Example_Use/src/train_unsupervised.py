@@ -297,7 +297,7 @@ if __name__ == "__main__":
 
     scheduler = torch.optim.lr_scheduler.MultiStepLR(
             optimizer,
-            milestones=[40, 100],
+            milestones=[100, 200],
             gamma=0.1  # Multiply LR by 0.1 at each milestone
         )
     # ------------------------------------------------
