@@ -40,13 +40,13 @@ pip install -r requirements.txt
 To train the unsupervised (VAE) model, run:
 
 ```bash
-python src/train_unsupervised.py --data_path ".\Dataset" --Max_LR 1e-4
+python src/train_unsupervised.py --data_path ".\Dataset" --Max_LR 0.001
 ```
 
 To train the supervised (ResNet) model, run:
 
 ```bash
-python src/train_unsupervised.py --data_path ".\Dataset" --Max_LR 1e-2
+python src/train_unsupervised.py --data_path ".\Dataset" --Max_LR 0.001
 ```
 
 Or, to fine-tune the ResNet18 model using the pretrained weights located at `initial_path`, run:

@@ -62,11 +62,12 @@ train_transform = trans.Compose(
 
 def get_dataset(root, df, load_dt_images=True):
 
-    num_train_normal = int(config["unsupervised"]["num_train_normal"])
-    num_valid_normal = int(config["unsupervised"]["num_valid_normal"])
-    normal = df[df["jammer_type"] == 'no jammer']
+    #num_train_normal = int(config["unsupervised"]["num_train_normal"])
+    #num_valid_normal = int(config["unsupervised"]["num_valid_normal"])
+    #normal = df[df["jammer_type"] == 'no jammer']
 
-    train_samples = normal[:num_train_normal]
+    #train_samples = normal[:num_train_normal]
+    train_samples = df[df["split_unsupervised"] == "train"]
     trainset = SpectralImagesUnsupervised(
         root,
         transform=train_transform,
@@ -75,7 +76,8 @@ def get_dataset(root, df, load_dt_images=True):
         data_type="train",
     )
 
-    normal_valid_samples = normal[num_train_normal:num_train_normal+num_valid_normal]
+    #normal_valid_samples = normal[num_train_normal:num_train_normal+num_valid_normal]
+    normal_valid_samples = df[df["split_unsupervised"] == "valid"]
     normal_validset = SpectralImagesUnsupervised(
         root,
         transform=base_transform,
