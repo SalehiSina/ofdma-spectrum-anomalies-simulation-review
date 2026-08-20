@@ -51,7 +51,7 @@ base_transform = trans.Compose(
 
 train_transform = trans.Compose(
     [
-        trans.RandomBrightnessContrast(brightness_limit=0.2, contrast_limit=0.2, p=0.5),
+        #trans.RandomBrightnessContrast(brightness_limit=0.2, contrast_limit=0.2, p=0.5),
         base_transform,
     ]
 )
@@ -72,6 +72,7 @@ def get_dataset(root, df, load_dt_images=True):
         transform=train_transform,
         dataframe=train_samples,
         load_dt_images=load_dt_images,
+        data_type="train",
     )
 
     normal_valid_samples = normal[num_train_normal:num_train_normal+num_valid_normal]
@@ -80,6 +81,9 @@ def get_dataset(root, df, load_dt_images=True):
         transform=base_transform,
         dataframe=normal_valid_samples,
         load_dt_images=load_dt_images,
+        data_type="valid",
+        max = trainset.max,
+        min = trainset.min,
     )
 
     trainloader = DataLoader(
@@ -99,6 +103,7 @@ def get_dataset(root, df, load_dt_images=True):
     )
 
     return trainloader, normal_validloader
+
 
 
 # ------------------------------------------------
@@ -149,16 +154,17 @@ def train(
 
                 optimizer.zero_grad()
 
-                mu, sigma = encoder(combined_inputs)
-                epsilon = torch.randn_like(sigma).to(device)
-                z = mu + sigma * epsilon
+                mu, log_var = encoder(combined_inputs)
+                std = torch.exp(0.5 * log_var)
+                epsilon = torch.randn_like(std).to(device)
+                z = mu + std * epsilon
                 decoded_x = decoder(z)
                 r_loss = reconstruction_loss(
                     decoded_x, combined_targets
                     )
-                kl = (
-                    -0.5 * torch.sum(1 + sigma - mu.pow(2) - sigma.exp())
-                    ) / orig_img.shape[0]
+                kl = -0.5 * torch.mean(
+                    1 + log_var - mu.pow(2) - log_var.exp()
+                    )
                 
                 loss = r_loss + 0.0001 * kl
 
@@ -169,8 +175,9 @@ def train(
                 optimizer.step()
 
 
-                if scheduler != None:
-                    scheduler.step()
+                #if scheduler != None:
+                #    scheduler.step()
+            scheduler.step()
 
             log.add_scalar("Rec_Loss/Train", np.nanmean(r_list), global_step=epoch)
             log.add_scalar("KL_Loss/Train", np.nanmean(kl_list), global_step=epoch)
@@ -189,15 +196,15 @@ def train(
                     img = img.float()
                     img = img.to(device)
 
-                    mu, sigma = encoder(img)
-                    epsilon = torch.randn_like(sigma).to(device)
-                    z = mu + sigma * epsilon
+                    mu, log_var = encoder(img)
+                    std = torch.exp(0.5 * log_var)
+                    epsilon = torch.randn_like(std).to(device)
+                    z = mu + std * epsilon
                     decoded_x = decoder(z)
                     v_r_loss = reconstruction_loss(decoded_x, img)
-                    v_kl = (
-                        -0.5 * torch.sum(1 + sigma - mu.pow(2) - sigma.exp())
-                    ) / img.shape[0]
-
+                    v_kl = -0.5 * torch.mean(
+                        1 + log_var - mu.pow(2) - log_var.exp()
+                        )
                     valid_Rec_loss.append(v_r_loss.item())
                     valid_kl_loss.append(v_kl.item())
 
@@ -261,7 +268,7 @@ if __name__ == "__main__":
 
     except Exception as e:
         print(e)
-        device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+        device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
         print("Device:", device)
         Multiple_GPU = False
 
@@ -278,14 +285,19 @@ if __name__ == "__main__":
     decoder = decoder.to(device)
     
     n_epochs = config["hyperparameters"]["unsupervised"]["n_epochs"]
-    reconstruction_loss = nn.BCELoss()
+    reconstruction_loss = nn.L1Loss()
     optimizer = torch.optim.Adam(
-            itertools.chain(encoder.parameters(), decoder.parameters()), lr=0.1
+            itertools.chain(encoder.parameters(), decoder.parameters()), lr=max_lr
         )
-    scheduler = torch.optim.lr_scheduler.OneCycleLR(
-            optimizer, max_lr, epochs=n_epochs, steps_per_epoch=len(trainloader), pct_start=0.2,
-            )
+    #scheduler = torch.optim.lr_scheduler.OneCycleLR(
+    #        optimizer, max_lr, epochs=n_epochs, steps_per_epoch=len(trainloader), pct_start=0.2,
+    #        )
 
+    scheduler = torch.optim.lr_scheduler.MultiStepLR(
+            optimizer,
+            milestones=[40, 100],
+            gamma=0.1  # Multiply LR by 0.1 at each milestone
+        )
     # ------------------------------------------------
     # Training Loop
     # ------------------------------------------------

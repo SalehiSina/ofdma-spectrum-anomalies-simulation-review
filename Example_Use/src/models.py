@@ -159,7 +159,7 @@ class Decoder(nn.Module):
     def __init__(
         self,
         latent_dim=latent_dim,
-        base_channels=16,
+        base_channels=32,
         img_channels=1,
         img_height=img_size_time,
         img_width=img_size_freq,

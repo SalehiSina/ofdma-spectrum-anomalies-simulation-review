@@ -58,6 +58,7 @@ def compute_aggregate_min_max(min_val, max_val, shape=(110, 70), num_sc_per_rb=1
     return min_aggregate_val, max_aggregate_val
 
 
+
 # Data Classes ------------------------------------------------
 
 class SpectralImagesUnsupervised(Dataset):
@@ -65,15 +66,27 @@ class SpectralImagesUnsupervised(Dataset):
     Dataset class for loading spectrogram image patches for an Unsupervised Learning task.
     """
 
-    def __init__(self, path: str, transform, dataframe, load_dt_images=False):
+    def __init__(self, path: str, transform, dataframe, load_dt_images=False, data_type="train", max=None, min=None):
 
         if load_dt_images:
             raise NotImplementedError("Loading dt_images is currently not implemented.")
 
+        if data_type != "train":
+            if max is None:
+                raise ValueError(f"max value in {data_type} dataset must not be None.")
+            if min is None:
+                raise ValueError(f"min value in {data_type} dataset must not be None.")
+                
+            self.max = max
+            self.min = min
+        else:
+            self.max = None
+            self.min = None
+        
         self.transform = transform  
         self.dir = os.path.join(path, "Images")  # directory where spectrogram PNGs are stored
         self.id = []  
-        self.frames = []  
+        self.frames = []
         self.jammer = []  # list to hold jam type labels (string initially, mapped later)
         self.num_transmitters = []  # list to hold number of legitimate transmitters for each example
         self.jammer_power = []  # list to hold jammer power value for each example
@@ -81,7 +94,7 @@ class SpectralImagesUnsupervised(Dataset):
         # Load ospectrogram global min/max from metadata CSV
         min_val, max_val = load_spectrogram_min_max(path)
         # Compute min/max after the same aggregation used for inputs (so normalization is consistent)
-        min_aggregate_val, max_aggregate_val = compute_aggregate_min_max(min_val, max_val)
+        #min_aggregate_val, max_aggregate_val = compute_aggregate_min_max(min_val, max_val)
 
         if os.path.isdir(self.dir):
             image_files = set(os.listdir(self.dir)) 
@@ -104,20 +117,37 @@ class SpectralImagesUnsupervised(Dataset):
                     img = aggregate_subcarriers(img, num_sc_per_rb=12)
 
                     # Normalize aggregated image to [0, 1] using aggregated min/max
-                    img = (img - min_aggregate_val) / (max_aggregate_val - min_aggregate_val)
+                    #img = (img - min_aggregate_val) / (max_aggregate_val - min_aggregate_val)
 
                     # If a transform is provided, apply it (albumentations expects keyword 'image')
-                    if self.transform is not None:
-                        img_transformed = self.transform(image=img)
-                        self.frames.append(img_transformed["image"])
-                    else:
-                        self.frames.append(img)
+                    self.frames.append(img)
 
                     self.jammer.append(dataframe.loc[dataframe['name'] == n, 'jammer_type'].iloc[0])
                     self.num_transmitters.append(
                         dataframe.loc[dataframe['name'] == n, 'num_legitimate_transmitters'].iloc[0]
                     )
                     self.jammer_power.append(dataframe.loc[dataframe['name'] == n, 'jammer_power'].iloc[0])
+
+            if data_type == "train":
+                train_max = np.max(self.frames)
+                train_min = np.min(self.frames)
+                r = train_max-train_min
+                g = r/0.8
+
+                self.min = train_min - 0.1*g
+                self.max = train_max + 0.1*g
+
+            print(f"maximum and minimum values used for normalisation: {self.max}, {self.min} ")
+
+            for i, frame in enumerate(tqdm(self.frames, desc="normalisation")):
+                img = (frame - self.min) / (self.max - self.min)
+                np.clip(img, 0.0, 1.0, out=img)
+
+                if self.transform is not None:
+                    img = self.transform(image=img)["image"]
+
+                self.frames[i] = img
+
 
             # Print available label distribution (strings) for debugging
             print("Sample Labels: \n", np.unique(self.jammer, return_counts=True))
@@ -246,11 +276,19 @@ class SpectralImagesSample(Dataset):
     Dataset class for loading spectrogram images from a certain sample.
     """
 
-    def __init__(self, sample_id, path: str, transform, dataframe, load_dt_images=False):
+    def __init__(self, sample_id, path: str, transform, dataframe, load_dt_images=False, max=None, min=None):
 
         if load_dt_images:
             raise NotImplementedError("Loading dt_images is currently not implemented.")
-
+        
+        if max is None:
+            raise ValueError(f"max value must not be None.")
+        if min is None:
+            raise ValueError(f"min value must not be None.")
+            
+        self.max = max
+        self.min = min
+    
         self.transform = transform  
         self.dir = os.path.join(path, "Images")  # directory where spectrogram PNGs are stored
         self.id = []
@@ -261,8 +299,8 @@ class SpectralImagesSample(Dataset):
 
         # Load ospectrogram global min/max from metadata CSV
         min_val, max_val = load_spectrogram_min_max(path)
-        # Compute min/max after the same aggregation used for inputs (so normalization is consistent)
-        min_aggregate_val, max_aggregate_val = compute_aggregate_min_max(min_val, max_val)
+        ## Compute min/max after the same aggregation used for inputs (so normalization is consistent)
+        #min_aggregate_val, max_aggregate_val = compute_aggregate_min_max(min_val, max_val)
 
         if os.path.isdir(self.dir):
 
@@ -277,15 +315,7 @@ class SpectralImagesSample(Dataset):
                 img = (img / 255) * (max_val - min_val) + min_val
                 img = aggregate_subcarriers(img, num_sc_per_rb=12)
 
-                # Normalize aggregated image to [0, 1] using aggregated min/max
-                img = (img - min_aggregate_val) / (max_aggregate_val - min_aggregate_val)
-
-                # If a transform is provided, apply it (albumentations expects keyword 'image')
-                if self.transform is not None:
-                    img_transformed = self.transform(image=img)
-                    self.frames.append(img_transformed["image"])
-                else:
-                    self.frames.append(img)
+                self.frames.append(img)
 
                 self.jammer.append(dataframe.loc[dataframe['name'] == sample_id, 'jammer_type'].iloc[0])
                 self.num_transmitters.append(
@@ -295,6 +325,17 @@ class SpectralImagesSample(Dataset):
 
             # Print available label distribution (strings) for debugging
             print("Sample Labels: \n", np.unique(self.jammer, return_counts=True))
+
+            print(f"maximum and minimum values used for normalisation: {self.max}, {self.min} ")
+
+            for i, frame in enumerate(tqdm(self.frames, desc="normalisation")):
+                img = (frame - self.min) / (self.max - self.min)
+                np.clip(img, 0.0, 1.0, out=img)
+
+                if self.transform is not None:
+                    img = self.transform(image=img)["image"]
+
+                self.frames[i] = img
 
     def __len__(self) -> int:
         # Return number of cached frames

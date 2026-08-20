@@ -205,3 +205,5 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+Example_Use/Notebooks/Train0.ipynb
+Example_Use/Notebooks/Train1.ipynb
