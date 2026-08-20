@@ -2,7 +2,7 @@
 
 ## Abstract
 
-This repository provides a modular, open-source simulation framework for generating physics-driven datasets of spectrum anomalies in OFDMA systems. It combines Blender and the Mitsuba add-on for ray-traced channel generation with Sionna-based processing to produce labeled spectrograms suitable for training and benchmarking machine learning models for spectrum anomaly detection. The framework supports configurable scenarios (legitimate transmitters, jammers, varied propagation conditions), produces detailed labels for each sample, and includes scripts to reproduce dataset generation and evaluation. The code and datasets accompany the paper "Spectrum Anomaly Detection in OFDMA Systems: Simulation Framework and Benchmark Dataset", available on arXiv, and are intended to enable reproducible research and quantitative comparison of anomaly detection methods.
+This repository belongs to the paper "Spectrum Anomaly Detection in OFDMA Systems: Simulation Framework and Benchmark Dataset", available on arXiv: [arXiv:2606.02102](https://arxiv.org/abs/2606.02102). It provides a modular, open-source simulation framework for generating physics-driven datasets of spectrum anomalies in OFDMA systems. It combines Blender and the Mitsuba add-on for ray-traced channel generation with Sionna-based processing to produce labeled spectrograms suitable for training and benchmarking machine learning models for spectrum anomaly detection. The framework supports configurable scenarios (legitimate transmitters, jammers, varied propagation conditions), produces detailed labels for each sample, and includes scripts to reproduce dataset generation and evaluation. The code and datasets accompany the paper "Spectrum Anomaly Detection in OFDMA Systems: Simulation Framework and Benchmark Dataset", available on arXiv, and are intended to enable reproducible research and quantitative comparison of anomaly detection methods.
 
 The dataset is available for download at Zenodo:
 
@@ -22,6 +22,16 @@ The key of this simulation is a scene, in which ray tracing is executed to obtai
 
 * Blender 4.2.19 LTS
 * Mitsuba Add-on for Blender 0.4.0 (follow the installation instructions [here](https://github.com/mitsuba-renderer/mitsuba-blender))
+* The Python script uses PyYAML to read the configuration file `blender-python\conf\scene_attributes.yaml`. Install it in the Blender Python environment by running
+
+```python
+import subprocess
+import sys
+
+subprocess.check_call([sys.executable, "-m", "pip", "install", "PyYAML"])
+```
+
+in the Blender `Scripting` tab.
 
 ### Usage
 
@@ -46,12 +56,12 @@ To further utilize the data, the script `src/create_image_data_and_labels.py` ca
 * Resource allocation images: Those images contain the resource allocation of the transmitters. They are 8-bit PNG images, in which 0 corresponds to not allocated and any other value corresponds to the allocated transmitter index. The filename format is `alloc_res-{sample_idx}.png`. 
 
 In addition, in the same directory, a file named `labels.csv` is created, which contains the following labels for each sample:
-* `jammer_type`: Type of the jammer (if there is no jammer, the value is "no jammer")
-* `jammer_power`: Transmit power of the jammer in dBm (if there is no jammer, the value is NaN)
-* `jammer_location`: Location of the jammer (if there is no jammer, the value is NaN)
+* `jammer_type`: Type of the jammer ("no jammer" if there is no jammer)
+* `jammer_power`: Transmit power of the jammer in dBm (empty if there is no jammer)
+* `jammer_location`: Location of the jammer (empty if there is no jammer)
 * `num_legitimate_transmitters`: Number of legitimate transmitters in the scene
 * `snr_by_su_<su_idx>`: Signal-to-noise ratio (SNR) at each sensing unit (SU) in dB
-* `sjr_by_su_<su_idx>`: Signal-to-jammer ratio (SJR) at each sensing unit (SU) in dB
+* `sjr_by_su_<su_idx>`: Signal-to-jammer ratio (SJR) at each sensing unit (SU) in dB  (inf if there is no jammer)
 
 
 ### Load the data
@@ -114,3 +124,19 @@ pydoctor --config pydoctor.ini
 ## Detection
 
 The baseline models for supervised and unsupervised detection are separated from the simulation framework. The corresponding code and supplements can be found in the `Example_Use` folder, which also has a separate README file. The code for the baseline models is provided as a starting point and can be further developed and improved. The code for the baseline models is not required to generate the dataset, but it can be used to evaluate the generated dataset and to provide a benchmark for future research on spectrum anomaly detection in OFDMA systems.
+
+# Citation
+
+If your are using the code or dataset in this repository, please cite the following paper:
+
+```bibtex
+@misc{schösser2026spectrumanomalydetectionofdma,
+      title={Spectrum Anomaly Detection in OFDMA Systems: Simulation Framework and Benchmark Dataset}, 
+      author={Anton Schösser and Mohammadhadi Salehi and Sinuo Ma and Philipp Schulz and Gerhard Fettweis},
+      year={2026},
+      eprint={2606.02102},
+      archivePrefix={arXiv},
+      primaryClass={eess.SP},
+      url={https://arxiv.org/abs/2606.02102}, 
+}
+```
