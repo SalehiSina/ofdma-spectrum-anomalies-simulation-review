@@ -1,12 +1,14 @@
 
 
 hyperparameters:
-  train_batch_size: 1536
+  train_batch_size: 1024
   inference_batch_size: 21
   supervised:
-    n_epochs: 400
+    Regression_n_epochs: 100
+    Classification_n_epochs: 100
   unsupervised:
-    n_epochs: 1000
+    n_epochs: 300
+    beta: 0.001
 
 model:
   latent_dim: 128  # dimensionality of the latent space (for VAE)
@@ -16,7 +18,7 @@ model:
 
   channels: 1  # number of image channels
   n_SUs: 21
-dataset_nr: 4
+dataset_nr: 3  # subfolder of the datasets folder given in datapath.txt of the repository root
 
 # data split config
 supervised:
