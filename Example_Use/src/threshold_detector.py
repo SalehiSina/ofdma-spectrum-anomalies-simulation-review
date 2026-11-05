@@ -60,7 +60,7 @@ JAMMER_NAMES = {
     "deceptive": "Deceptive",
     "pilot": "Pilot",
     "sweep": "Sweep",
-    "random_hop": "Random hop",
+    "random_hop": "Random Hop",
 }
 NUM_SC_PER_RB = 12
 
