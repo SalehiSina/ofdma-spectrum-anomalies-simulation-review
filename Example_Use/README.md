@@ -72,6 +72,8 @@ The trained weights are provided in the `Example_Use/Weights` directory.
 You can use the jupyter notebooks provided to evaluate obtained anomaly scores (`Notebooks/Metrics.ipynb`, `Notebooks/Plots.ipynb`, which read the scores from `Anomaly_Scores`).
 Additionally, you can visualize the anomalies detected by the VAE model for each sample (`Notebooks/Visualisation.ipynb`).
 
+If you want to test the framework using your own trained weights, make sure to update the weight paths in `src/Test.py` accordingly.
+
 ---
 
 # Threshold-based Baseline
